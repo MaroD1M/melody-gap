@@ -1,0 +1,8 @@
+# 开发/打包依赖（运行期依赖见 requirements.txt）
+-r requirements.txt
+
+# 打包
+pyinstaller>=6.0.0
+
+# 代码检查（可选）
+ruff>=0.5.0
