@@ -2,7 +2,7 @@
 -r requirements.txt
 
 # 打包
-pyinstaller>=6.0.0,<7
+pyinstaller>=6.22.3,<7
 
 # 代码检查（可选）
-ruff>=0.5.0,<1
+ruff>=0.17.1,<1
