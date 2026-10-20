@@ -1,0 +1,24 @@
+# MelodyGap 配置示例
+# 将本文件复制为 config.ini（或直接在程序「设置」中填写）后修改。
+#
+# 说明：
+# * server_url 必须包含 http:// 或 https://，填写根地址即可；
+# * 支持 Subsonic / Navidrome / Airsonic 等兼容服务器；
+# * 密码以明文保存在 config.ini，请勿提交到公开仓库；
+# * 程序只监控和提醒，不会自动下载歌曲或修改播放器收藏。
+
+[SUBSONIC]
+server_url = https://your-server.com:port/
+username = your_username
+password = your_password
+# 是否校验 HTTPS 证书；仅自签名服务器才建议设为 0
+verify_ssl = 1
+
+[APP]
+# new_missing=仅新缺失歌曲，missing=所有缺失歌曲，all=全部歌曲，off=关闭
+reminder_mode = new_missing
+reminder_cooldown_minutes = 10
+# 由程序自动保存，通常不需要手动修改
+window_geometry = 1080x760
+window_zoomed = 0
+last_tab = 0
