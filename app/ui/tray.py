@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 # UI 事件队列元素：(kind, payload)
 # kind:
 #   "record"          -> (PlayRecord, MissingSong | None, created)
-#   "recheck_result"  -> (key, title, artist, Optional[bool], quiet)
+#   "recheck_result"  -> (key, title, artist, Optional[bool], quiet, player)
 #   "recheck_done"    -> {"total": int, "in_library": int, ...}
 #   "current_recheck_result" -> (SongInfo, Optional[bool])
 #   "show" / "show_missing" / "quit" -> None
@@ -181,26 +181,34 @@ class TrayApp:
         artist: str,
         result: Optional[bool],
         quiet: bool = False,
+        player: str = "",
     ) -> None:
-        """主线程：应用“核验”结果。"""
-        self.monitor.update_current_result(artist, title, result)
+        """主线程：应用“核验”结果（player 用于精确更新同名双播放器）。"""
+        self.monitor.update_current_result(
+            artist, title, result, player=player or None
+        )
         if result is True:
             self.missing_repo.remove_key(key)
         if quiet:
             return
 
         if result is True:
-            self.notification.show(title, artist, True, copy_text="")
+            self.notification.show(
+                title, artist, True, player=player, copy_text=""
+            )
         elif result is False:
             self.notification.show(
                 title,
                 artist,
                 False,
+                player=player,
                 is_new_missing=False,
                 copy_text=f"{title} - {artist}",
             )
         else:
-            self.notification.show(title, artist, None, copy_text="")
+            self.notification.show(
+                title, artist, None, player=player, copy_text=""
+            )
 
     def _handle_recheck_done(self, counts: dict) -> None:
         """主线程：批量核验结束，显示汇总。"""
@@ -218,7 +226,9 @@ class TrayApp:
     ) -> None:
         """主线程：应用当前歌曲的单次重新查询结果。"""
         self._rechecking = False
-        if not self.monitor.update_current_result(song.artist, song.title, result):
+        if not self.monitor.update_current_result(
+            song.artist, song.title, result, player=song.player or None
+        ):
             self.main_window.set_message("歌曲已切换，本次查询结果未应用")
             self.main_window.refresh_data()
             return
@@ -226,7 +236,7 @@ class TrayApp:
             self.missing_repo.resolve_song(song.artist, song.title)
             self.main_window.set_message("查询完成：已在曲库")
         elif result is False:
-            record = self.monitor.current_record
+            record = self.monitor.current_records.get(song.player)
             if record is not None:
                 self.missing_repo.ensure_missing(record)
             self.main_window.set_message("查询完成：不在曲库")
@@ -343,7 +353,14 @@ class TrayApp:
             self._ui_queue.put(
                 (
                     "recheck_result",
-                    (entry.key, entry.title, entry.artist, result, quiet),
+                    (
+                        entry.key,
+                        entry.title,
+                        entry.artist,
+                        result,
+                        quiet,
+                        entry.player,
+                    ),
                 )
             )
         self._ui_queue.put(("recheck_done", counts))

@@ -27,7 +27,7 @@ python -m compileall -q app main.py
 
 ## 代码约定
 
-- 兼容 Python 3.8，使用 `typing.Optional/List/Dict`，不使用 `str | None`。
+- 兼容 Python 3.9，使用 `typing.Optional/List/Dict`，不使用 `str | None`。
 - 业务逻辑放在 `app/services`，Tk 控件操作只在主线程执行。
 - 不在日志中输出密码、token 或完整认证 URL。
 - 配置默认值必须是占位内容，不得提交任何真实凭据。

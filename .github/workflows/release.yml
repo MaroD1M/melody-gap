@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.9"
           cache: pip
           cache-dependency-path: requirements*.txt
 
@@ -34,9 +34,21 @@ jobs:
       - name: Test
         run: python -m unittest discover -s tests -v
 
+      - name: Verify WinRT dependency
+        run: python -c "import winrt.windows.media.control"
+
       - name: Build executable
         run: |
-          pyinstaller --onefile --windowed --name MelodyGap --icon icon.ico --add-data "icon.ico;." main.py
+          pyinstaller --onefile --windowed --name MelodyGap --icon icon.ico --add-data "icon.ico;." --collect-submodules winrt --collect-binaries winrt main.py
+
+      - name: Smoke test executable
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath dist/MelodyGap.exe -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            if (Test-Path dist/melodygap.log) { Get-Content dist/melodygap.log -Tail 50 }
+            throw "MelodyGap.exe 打包自检失败，退出码 $($process.ExitCode)"
+          }
 
       - name: Package release files
         shell: pwsh

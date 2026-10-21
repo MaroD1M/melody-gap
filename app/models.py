@@ -18,7 +18,7 @@ from app.constants import (
 
 @dataclass(frozen=True)
 class SongInfo:
-    """从播放器窗口标题解析出的歌曲信息（不可变值对象）。
+    """当前播放歌曲信息（不可变值对象，来自 SMTC 或窗口标题）。
 
     Attributes:
         title: 歌曲名
@@ -44,6 +44,35 @@ class SongInfo:
         return f"[{self.player_name}] {self.title} - {self.artist}"
 
 
+@dataclass(frozen=True)
+class PlaybackCandidate:
+    """一次检测到的播放候选（可来自 SMTC 或窗口标题）。
+
+    Attributes:
+        song: 解析后的歌曲信息
+        source: ``smtc`` 或 ``window``
+        playback_status: SMTC 播放状态；窗口来源固定为 ``unknown``
+        full_title: 原始标题/元数据，用于展示和排障
+    """
+
+    song: SongInfo
+    source: str
+    playback_status: str
+    full_title: str
+
+    @property
+    def player(self) -> str:
+        return self.song.player
+
+    @property
+    def title(self) -> str:
+        return self.song.title
+
+    @property
+    def artist(self) -> str:
+        return self.song.artist
+
+
 @dataclass
 class PlayRecord:
     """一条播放记录。
@@ -53,7 +82,7 @@ class PlayRecord:
         title: 歌曲名
         artist: 歌手名
         in_library: 是否在 Subsonic 曲库中；``None`` 表示未配置或查询失败
-        full_title: 原始窗口标题（排障用）
+        full_title: 原始窗口标题或 SMTC 元数据（排障用）
         player: 播放器标识
     """
 

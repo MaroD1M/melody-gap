@@ -1,9 +1,9 @@
 # MelodyGap 开发与维护手册
 
-> 版本：1.0.0
+> 版本：1.1.0
 > 适用范围：`melody-gap/` 全部源码
 > 目标读者：后续维护者、二次开发者、代码审查者
-> 最后更新：2026-10-20
+> 最后更新：2026-10-21
 
 本文档是项目的**唯一技术基准**。修改代码前请先阅读「线程模型」「数据流」
 「扩展指南」三节；新增功能后请同步更新本文档与「变更记录」。
@@ -22,7 +22,7 @@ Navidrome 音乐服务器。程序需要在不侵入播放器的前提下，自�
 
 | 目标 | 说明 |
 |------|------|
-| 无侵入 | 只读取进程名和窗口标题，不注入、不抓包、不修改播放器 |
+| 无侵入 | 只读取进程名、窗口标题和系统媒体会话元数据，不注入、不抓包、不修改播放器 |
 | 低资源 | 进程扫描 5 秒缓存；窗口枚举 2 秒一次；无数据库依赖 |
 | 可维护 | 业务逻辑与 UI 分离；纯函数可单测；模块职责单一 |
 | 可诊断 | 全部关键路径写日志；异常带上下文；不吞异常 |
@@ -54,7 +54,9 @@ Navidrome 音乐服务器。程序需要在不侵入播放器的前提下，自�
 ├──────────────────────────────────────────────────────────────┤
 │ 服务层        app/services/                                  │
 │               monitor（线程/流程编排）                        │
-│               player_detector（Win32）                       │
+│               playback_detector（SMTC + 窗口混合）            │
+│               smtc_detector（Windows 媒体会话）               │
+│               player_detector（Win32 窗口回退）               │
 │               title_parser / matcher（纯逻辑）               │
 │               subsonic（HTTP 客户端）                        │
 │               missing_repository / reminder（待补/提醒）      │
@@ -81,8 +83,10 @@ Navidrome 音乐服务器。程序需要在不侵入播放器的前提下，自�
 | `app/services/title_parser.py` | 标题过滤/解析/择优 | 纯函数，无平台依赖 |
 | `app/services/matcher.py` | 标准化/相似度/评分 | 纯逻辑，无网络 |
 | `app/services/subsonic.py` | 认证、search2/search3、重试与错误映射 | 只依赖 requests |
-| `app/services/player_detector.py` | 进程缓存、窗口枚举 | 仅 Windows 生效 |
-| `app/services/monitor.py` | 轮询循环、历史、查询缓存、事件回调 | 不碰 Tk |
+| `app/services/smtc_detector.py` | Windows SMTC 会话轮询、元数据/状态解析 | 懒加载 winrt；独立 daemon 线程 |
+| `app/services/playback_detector.py` | 合并 SMTC 与窗口候选，按播放器择优 | SMTC 优先，窗口仅补缺失播放器 |
+| `app/services/player_detector.py` | 进程缓存、可见/隐藏窗口枚举 | 仅 Windows 生效 |
+| `app/services/monitor.py` | 多播放器轮询、历史、查询缓存、事件回调 | 不碰 Tk；每播放器独立状态 |
 | `app/services/missing_repository.py` | 待补清单 JSON 持久化、去重、状态 | 线程安全、原子写入 |
 | `app/services/reminder.py` | 提醒模式与冷却判断 | 纯逻辑，不读系统时间 |
 | `app/ui/*` | 窗口与托盘 | 只在主线程操作控件 |
@@ -151,7 +155,8 @@ python main.py
 | 线程 | 创建位置 | 允许做的事 | 禁止做的事 |
 |------|----------|-----------|-----------|
 | 主线程（Tk） | `main.py` | 创建/操作所有 Tk 控件、消费 UI 队列、调度 `after` | 执行阻塞网络请求 |
-| 监控线程 | `MusicMonitor.start()` | 读进程/窗口、HTTP 查询、写历史、投递队列 | 直接操作 Tk / 弹窗 |
+| 监控线程 | `MusicMonitor.start()` | 读混合检测快照、HTTP 查询、写历史、投递队列 | 直接操作 Tk / 弹窗 |
+| SMTC 线程 | `SmtcDetector.start()` | asyncio 轮询 Windows 媒体会话，发布不可变快照 | 直接操作 Tk / 写监控状态 |
 | 托盘线程 | `TrayApp.run()` | pystray 消息循环、把菜单事件放入队列 | 直接操作 Tk |
 | 核验线程 | `TrayApp.request_recheck()` | 逐首重查曲库、投递结果/汇总 | 直接操作 Tk、修改 UI |
 
@@ -164,7 +169,9 @@ python main.py
 self._ui_queue.put(("record", (record, entry, created)))
 
 # 核验线程
-self._ui_queue.put(("recheck_result", (key, title, artist, result, quiet)))
+self._ui_queue.put(
+    ("recheck_result", (key, title, artist, result, quiet, player))
+)
 self._ui_queue.put(("recheck_done", counts))
 
 # 托盘线程
@@ -186,12 +193,14 @@ Tkinter 的线程安全边界并不保证跨线程调用 `after` 一定安全；
 | 数据 | 写线程 | 读线程 | 保护方式 |
 |------|--------|--------|----------|
 | `_history` | 监控线程 | 主线程 | `threading.Lock`；对外返回副本 |
-| `_current_song` | 监控线程 | 主线程 | 同一把锁 |
+| `_current_songs` / `_current_records` | 监控线程 | 主线程 | `_history_lock`；对外返回副本 |
+| `_current_sources` | 监控线程 | 主线程 | `_history_lock`；值为 `smtc` / `window` |
 | `running` | 主/托盘线程 | 主线程 | GIL + 简单布尔值，可接受 |
-| `_last_titles` | 监控线程 | 监控线程 | 单线程写，无需锁 |
+| `_last_keys` | 监控线程 | 监控线程 | 每播放器独立的歌曲键；reload 时整体替换 |
 | `_result_cache` | 监控/核验线程 | 监控/核验线程 | `_cache_lock` |
 | `_last_query_error` / `_query_ok` | 监控/核验线程 | 主线程 | `_history_lock` |
-| `_unknown_retry_*` | 监控线程 | 监控线程 | 仅监控线程访问 |
+| `_unknown_retries` | 监控线程 | 监控线程 | 每播放器独立状态；仅监控线程访问 |
+| SMTC 快照 | SMTC 线程 | 监控线程 | `SmtcDetector._lock`；读取时复制 |
 | `missing_repo` | 监控/主线程 | 主线程 | 仓库内部锁；读写均返回副本 |
 | `_rechecking` | 主线程 | 主线程 | 仅主线程读写，防止重复批量任务 |
 
@@ -212,7 +221,20 @@ SongInfo(title="晴天", artist="周杰伦", player="qq")
 - `player_name` / `player_short_name` 从常量表派生；
 - 不可变（`frozen=True`），可安全跨线程传递。
 
-### 5.2 `PlayRecord`
+### 5.2 `PlaybackCandidate`（不可变）
+
+一次检测得到的播放候选，来自 SMTC 或窗口标题：
+
+| 字段 | 说明 |
+|------|------|
+| `song` | `SongInfo`（歌名/歌手/播放器） |
+| `source` | `smtc` / `window` |
+| `playback_status` | `playing` / `paused` / `stopped` / `unknown` |
+| `full_title` | 原始元数据或窗口标题，用于去重和排障 |
+
+混合检测器按播放器合并候选；同一播放器优先 SMTC，其次窗口。
+
+### 5.3 `PlayRecord`
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -229,7 +251,7 @@ SongInfo(title="晴天", artist="周杰伦", player="qq")
 **三态语义**：未配置服务器、网络失败、认证失败统一记为 `None`，不会写入
 待补清单，也不会弹出缺失提醒。
 
-### 5.3 `MissingSong` 与待补清单
+### 5.4 `MissingSong` 与待补清单
 
 `MissingSong` 字段：`key`、`title`、`artist`、`player`、`first_seen`、
 `last_seen`、`play_count`、`status`（`pending` / `ignored`）。
@@ -337,8 +359,8 @@ GET /rest/<endpoint>?u=<user>&t=<token>&s=<salt>&v=1.16.1&c=...&f=json
 | JSON 解析失败 | 服务器响应格式错误，请检查服务器地址 |
 
 统一抛出 `SubsonicError`，上层（monitor）捕获后标记为“未知”并记录日志。
-未知状态不会写入待补清单；当前歌曲每隔 15 秒最多自动重试 5 次，成功后会更新
-原记录并重新触发回调，不产生重复历史。
+未知状态不会写入待补清单；每个播放器每隔 15 秒最多自动重试 5 次，成功后更新
+对应记录并重新触发回调，不产生重复历史，也不影响另一个播放器。
 
 ---
 
@@ -412,27 +434,38 @@ TITLE_WEIGHT = 0.6
 
 ### 9.1 支持的播放器
 
-| key | 进程名（小写比较） | 显示名 |
-|-----|-------------------|--------|
-| `qq` | `qqmusic.exe` | QQ音乐 |
-| `netease` | `cloudmusic.exe` / `neteasecloudmusic.exe` / `neteasemusic.exe` | 网易云音乐 |
+| key | 进程名（小写比较） | SMTC AppId 片段 | 显示名 |
+|-----|-------------------|-----------------|--------|
+| `qq` | `qqmusic.exe` | `qqmusic` / `tencent.qqmusic` / `tencent.qqmusicpc` | QQ音乐 |
+| `netease` | `cloudmusic.exe` / `neteasecloudmusic.exe` / `neteasemusic.exe` | `cloudmusic` / `neteasecloudmusic` / `netease.cloudmusic` | 网易云音乐 |
 
-新增播放器只需修改 `app/constants.py` 的 `SUPPORTED_PLAYERS`，并在
+新增播放器需修改 `SUPPORTED_PLAYERS` 的进程名与 `smtc_app_ids`，并在
 `PLAYER_EXCLUDED_KEYWORDS` 中补充主界面关键词（如有）。
 
 ### 9.2 检测流程
 
 ```text
 MusicMonitor._poll_once()
-  └─ PlayerDetector.get_current_playing()
-       ├─ update_process_cache()      # 5s TTL，psutil 扫描 PID
-       └─ 对每个已运行播放器：
-            ├─ EnumWindows             # 枚举可见窗口
-            ├─ GetWindowThreadProcessId# 窗口归属 PID
-            ├─ GetWindowTextW          # 读取标题
-            ├─ is_valid_song_title()   # 关键词过滤 + 分隔符检查
-            └─ select_best_title()     # 多窗口择优
+  └─ HybridPlaybackDetector.get_current_playings()
+       ├─ SmtcDetector.snapshot()     # 独立线程轮询，约 2s；读取副本
+       │    ├─ GetSessions()          # 枚举所有媒体会话
+       │    ├─ SourceAppUserModelId   # 映射到 qq / netease
+       │    ├─ TryGetMediaPropertiesAsync()
+       │    └─ PlaybackStatus         # 同播放器多会话优先 playing
+       └─ PlayerDetector.get_current_playings(仅缺 SMTC 的播放器)
+            ├─ update_process_cache() # 5s TTL，psutil 扫描 PID
+            ├─ EnumWindows            # 可见窗口 + 隐藏窗口
+            ├─ GetWindowThreadProcessId
+            ├─ GetWindowTextW
+            ├─ is_valid_song_title()
+            └─ select_best_title()    # 可见候选优先，其次隐藏候选
 ```
+
+**合并规则**：每个播放器最多一个候选；SMTC 有结果时忽略该播放器的窗口标题；
+SMTC 返回暂停状态时仍保留歌曲信息，但不改变历史记录语义。
+
+**降级规则**：非 Windows、缺少 `winrt-*`、SMTC 管理器请求失败或会话读取异常时，
+自动回退到窗口标题检测；SMTC 线程异常不会终止监控线程。
 
 ### 9.3 标题清洗与过滤规则
 
@@ -465,19 +498,23 @@ MusicMonitor._poll_once()
 ### 9.4 解析与去重
 
 - 清洗后的标题用正则惰性匹配第一个分隔符，前半为歌名、后半为歌手；
-- 同一播放器记录 `_last_titles`，标题不变则不重复记录；
-- 标题变化但解析失败时不更新 `_last_titles`，下一轮仍会尝试；
-- 没有检测到任何歌曲时，`current_song` 置为 `None`（暂停时窗口标题仍在，
-  因此仍会显示当前歌曲）。
+- 每个播放器分别记录 `_last_keys = (artist, title)`，歌曲不变则不重复记录；
+- SMTC 与窗口回退切换但歌曲相同时保持同一条记录，只更新检测来源；
+- 解析失败时不更新 `_last_keys`，下一轮仍会尝试；
+- 没有检测到某个播放器时，只清理该播放器的当前状态，另一个播放器不受影响；
+- 短暂漏检在 10 秒内恢复原记录；消失超过 10 秒后清空歌曲去重键，重新播放同一首歌会新增记录；
+- 两个播放器播放同一首歌时，播放历史按播放器各记一条；待补清单仍跨播放器去重。
 
 ### 9.5 已知限制
 
 - 窗口标题格式由播放器决定，不同版本/皮肤可能不同。若某版本使用
   “歌手 - 歌名”顺序，当前会解析反。届时需要在 `parse_title()` 中按
   `player_key` 增加分支，并补充测试。
-- 同时运行 QQ 音乐和网易云音乐时，按 `SUPPORTED_PLAYERS` 顺序返回第一个
-  有歌曲标题的窗口（当前 QQ 优先）。暂停的播放器窗口标题通常不变，可能被
-  误报为“当前播放”。后续可结合前台窗口或 Windows 媒体会话（SMTC）判断。
+- 同时运行 QQ 音乐和网易云音乐时，两个播放器分别维护状态并并列展示；同一
+  播放器的多个窗口仍由标题评分择一。
+- SMTC 覆盖依赖播放器版本：QQ 音乐新版已注册；网易云及旧版本需实机确认。
+- 没有 SMTC 时回退窗口标题；播放器关闭到托盘后若销毁了带歌名的隐藏窗口，
+  标题方案无法检测。暂停时标题通常不变，也可能继续显示为当前歌曲。
 - 标题末尾应用名的剥离依赖 `PLAYER_TITLE_SUFFIXES`；播放器改名后需同步维护。
 - 功能页关键词采用“整段完全相等”匹配，若某首歌名恰好等于关键词（例如
   一首歌就叫《设置》），会被误过滤。
@@ -489,8 +526,9 @@ MusicMonitor._poll_once()
 ### 10.1 主窗口
 
 - 顶部：深色品牌栏、监控状态、待补数量徽标；
-- 当前播放 Hero 卡：大号歌名 + `歌手 · 播放器` + 在库/不在库/未知/查询中
-  状态，“复制歌名”和“复制信息”分离；当前歌曲未知或不在库时可“重新查询”；
+- 当前播放 Hero 卡：QQ 音乐 / 网易云音乐双行并列，每行显示播放器徽标、
+  歌名 + `歌手 · 检测来源` + 在库/不在库/未知/查询中状态；每行独立“复制歌名”、
+  “复制信息”和“重新查询”；无播放时显示“暂无播放”；
 - 统计卡片：总播放、在库、待补、QQ音乐、网易云；点击卡片跳转到对应筛选；
 - 页签 1「待补清单」：搜索、状态筛选、复制选中/列表、导出、核验选中/
   核验待补、忽略、恢复、删除；双击单行只复制该行；
@@ -545,6 +583,7 @@ MusicMonitor._poll_once()
 
 - 右下角无边框 Toplevel，置顶，95% 不透明；
 - 6 秒自动关闭；点击任意位置复制 `歌名 - 歌手` 后关闭；
+- 最多排队 5 条，逐条展示并自动衔接，双播放器同时切歌不互相覆盖；
 - 可点击区域使用手型光标，并显示“单击复制歌曲信息 · 6 秒后自动关闭”；
 - 绿色 = 在库，红色 = 不在库/新待补，灰色 = 无法查询；
 - 提醒模式：仅新缺失（默认）、所有缺失、全部歌曲、关闭；
@@ -677,12 +716,13 @@ Windows 原生播放器检测与真实托盘交互不在单元测试范围内。
 | `tests/test_subsonic.py` | 本地假服务器验证 token 认证、三种搜索策略、去重、单条 dict、错误映射 |
 | `tests/test_missing_repository.py` | 待补清单去重、持久化、忽略/恢复、移除、损坏备份 |
 | `tests/test_reminder.py` | 四种提醒模式、冷却、未知状态、非法配置回退 |
-| `tests/test_monitor.py` | 假检测器/假曲库验证记录、去重、切歌、清空、启停、三态、缓存、重查 |
+| `tests/test_playback_detector.py` | SMTC AppId/状态映射、会话元数据、SMTC 优先与窗口回退、启动停止 |
+| `tests/test_monitor.py` | 假检测器/假曲库验证记录、去重、切歌、清空、启停、三态、缓存、重查、双播放器并行、来源切换、漏检恢复与独立重试 |
 | `tests/test_clipboard.py` | 复制歌名/歌曲信息、播放记录复制、剪贴板异常 |
 | `tests/test_settings_form.py` | 密码空格、URL 大小写、内联校验与字段聚焦 |
 | `tests/test_context_menu.py` | 多选菜单文案、搜索禁用、忽略/恢复状态、历史菜单标题 |
 
-当前共 103 个用例，全部为离线测试（数量变化时以实际运行为准）。
+当前共 122 个用例，全部为离线测试（数量变化时以实际运行为准）。
 
 ### 13.3 手动验收清单（Windows）
 
@@ -699,9 +739,13 @@ Windows 原生播放器检测与真实托盘交互不在单元测试范围内。
 11. 重复启动 exe → 提示“程序已在运行”；
 12. 关闭主窗口 → 隐藏到托盘；托盘退出 → 进程结束、日志正常收尾；
 13. 临时断开服务器 → 当前歌曲显示“未知”，恢复后自动重试成功且不产生重复记录；
-14. 导出 CSV → Excel 打开无乱码、含逗号的歌名完整；
-15. 播放记录右键复制、按当前筛选导出、清空确认默认“否”；
-16. 设置留空服务器地址 → 表单内联提示并聚焦该字段，不弹警告框。
+14. 同时播放 QQ 音乐与网易云音乐 → 两行并列显示，切歌互不覆盖，通知逐条展示；
+15. 关闭主窗口到托盘 / 只显示悬浮歌词 → SMTC 继续识别；无 SMTC 时验证隐藏窗口回退；
+16. 双播放器播放同一首歌 → 各自记录；从某一行重新查询只更新该播放器；
+17. 导出 CSV → Excel 打开无乱码、含逗号的歌名完整；
+18. 播放记录右键复制、按当前筛选导出、清空确认默认“否”；
+19. 设置留空服务器地址 → 表单内联提示并聚焦该字段，不弹警告框；
+20. PyInstaller 单文件包在无 Python 环境运行，日志确认 SMTC 模块加载成功或已明确降级。
 
 ### 13.4 新增测试要求
 
@@ -721,22 +765,27 @@ pyinstaller --onefile --windowed ^
   --name MelodyGap ^
   --icon icon.ico ^
   --add-data "icon.ico;." ^
+  --collect-submodules winrt ^
+  --collect-binaries winrt ^
   main.py
 ```
 
-产物：`dist/MelodyGap.exe`。
+产物：`dist/MelodyGap.exe`。构建前建议执行
+`python -c "import winrt.windows.media.control"`，确认 WinRT 依赖已安装。
+构建后可执行 `dist\MelodyGap.exe --smoke-test`，验证冻结包能导入 tkinter、
+WinRT SMTC 与混合检测器；退出码 0 表示通过。GitHub Actions 发布流程会自动执行。
 
 #### 14.1 GitHub Actions 自动发布
 
-- `.github/workflows/ci.yml`：推送与 PR 自动运行 ruff + 单元测试；
+- `.github/workflows/ci.yml`：推送与 PR 在 Python 3.9 / 3.12 上运行 ruff + 单元测试，并在 Windows Python 3.9 上验证 WinRT 依赖与适用测试；
 - `.github/workflows/release.yml`：推送 `v*` 标签时在 Windows Runner 上运行测试、
   打包单文件 exe、生成 ZIP 与 SHA256，并自动创建 GitHub Release；
 - GitHub 会自动附带源码 zip/tar 包，用户可直接下载源码或构建好的 exe；
 - 发布新版本：更新 `APP_VERSION` 与 `CHANGELOG.md`，提交后推送同名标签：
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 注意：
@@ -744,7 +793,7 @@ git push origin v1.0.0
 - `--add-data` 分隔符 Windows 用 `;`，Linux/macOS 用 `:`；
 - 配置和日志写在 exe 同目录，发布时目录需可写（不要放 `Program Files`）；
 - 若使用自定义版本信息，可追加 `--version-file version_info.txt`；
-- 打包后先用 `--console` 版本跑一次，确认无缺失 DLL/隐式导入问题。
+- 打包后先用 `--console` 版本跑一次，确认无缺失 DLL/隐式导入问题；重点检查日志中是否存在“SMTC 媒体会话管理器已就绪”或明确的降级原因。
 
 ---
 
@@ -752,7 +801,7 @@ git push origin v1.0.0
 
 ### 15.1 基本
 
-- Python 3.8 兼容：使用 `typing.Optional/List/Dict`，不用 `str | None`；
+- Python 3.9 兼容：使用 `typing.Optional/List/Dict`，不用 `str | None`；
 - 文件头 `# -*- coding: utf-8 -*-` + 模块 docstring；
 - 命名：模块/函数/变量 `snake_case`，类 `PascalCase`，常量 `UPPER_SNAKE`；
 - 类型注解覆盖公共 API；回调类型用 `Callable[...]` 别名；
@@ -786,7 +835,7 @@ git push origin v1.0.0
 
 ### 16.1 新增播放器
 
-1. 在 `constants.SUPPORTED_PLAYERS` 增加条目（进程名、显示名、短名）；
+1. 在 `constants.SUPPORTED_PLAYERS` 增加条目（进程名、SMTC AppId 片段、显示名、短名）；
 2. 在 `PLAYER_EXCLUDED_KEYWORDS` 增加主界面排除词；
 3. 若标题顺序不是“歌名 - 歌手”，在 `title_parser.parse_title()` 增加分支；
 4. 若窗口标题有额外后缀（如 ` - QQ音乐`），在解析前清洗；
@@ -841,7 +890,7 @@ value = True / False
 | # | 问题 | 影响 | 建议 |
 |---|------|------|------|
 | 1 | 仅 Windows | 无法跨平台运行 | 抽象 `PlayerDetector` 接口，macOS 用 AppleScript |
-| 2 | 依赖窗口标题 | 播放器改版可能失效 | 预留 Media Session / SMTC 方案 |
+| 2 | SMTC 覆盖依赖播放器版本 | 旧版/未注册会话只能回退窗口标题 | 按版本维护 AppId 并记录实机验收结果 |
 | 3 | ~~曲库结果只有布尔~~ | 已改为三态 `Optional[bool]` | 已完成 |
 | 4 | 历史仅内存 | 退出即丢 | SQLite 持久化 |
 | 5 | 网络慢时监控线程阻塞 | 查询仍在监控线程同步执行 | 异步请求/线程池；已加入缓存与提前终止 |
@@ -868,11 +917,12 @@ value = True / False
 服务器返回的歌手字段为空、相似度略低于 0.75。可临时降低阈值验证。
 
 **Q4：播放时没有反应？**
-确认播放器进程名在支持列表内；窗口未最小化到托盘；窗口标题包含分隔符；
-日志中是否有“标题解析失败”。
+优先看日志中的“SMTC 媒体会话管理器已就绪”；若降级，确认播放器进程名在
+支持列表内、窗口标题包含分隔符，并检查是否有“标题解析失败”。
 
 **Q5：为什么暂停后“当前播放”还在？**
-暂停时窗口标题通常不变，检测逻辑无法区分暂停/播放。这是标题方案的固有限制。
+窗口标题回退无法区分暂停/播放。新版播放器且 SMTC 可用时可读取 `PlaybackStatus`，
+但当前历史记录仍按“当前歌曲”处理，不单独记录暂停事件。
 
 **Q6：日志在哪里？**
 源码运行在项目根目录，exe 运行在 exe 同目录，文件名
@@ -894,6 +944,15 @@ value = True / False
 - 设置窗口支持连接测试、HTTPS 证书校验与表单内联校验；
 - 提醒模式、同曲冷却、系统托盘与窗口状态记忆；
 - 103 项离线单元测试，CI 运行 lint 与测试，标签推送自动构建 Windows 发布包。
+
+### 1.1.0（2026-10-21）
+
+- 接入 Windows SMTC，支持关闭主窗口/托盘/悬浮歌词时识别播放；
+- 新增混合检测：SMTC 优先，窗口标题回退，隐藏窗口作为兜底；
+- QQ 音乐与网易云音乐同时播放时独立状态、双行并列展示；
+- 通知队列避免双播放器同时切歌时互相覆盖；
+- 托盘核验结果携带播放器，精确更新同名双播放器；
+- 最低 Python 版本升至 3.9，CI 覆盖 3.9/3.12，新增 SMTC/混合检测测试，全量 122 项离线测试。
 
 ## 20. 下一步优化路线（待讨论）
 

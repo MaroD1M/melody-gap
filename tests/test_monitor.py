@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from app.config_manager import ConfigManager
-from app.models import SongInfo
+from app.constants import PLAYBACK_SOURCE_SMTC, PLAYBACK_SOURCE_WINDOW
+from app.models import PlaybackCandidate, SongInfo
 from app.services.monitor import MusicMonitor
 from app.services.subsonic import SubsonicError
 
@@ -20,6 +21,30 @@ class FakeDetector:
 
     def get_current_playing(self) -> Optional[Tuple[str, str]]:
         return self.current
+
+
+class FakeMultiDetector:
+    """返回多个播放器候选的假检测器。"""
+
+    def __init__(self) -> None:
+        self.candidates = []
+
+    def get_current_playings(self):
+        return list(self.candidates)
+
+
+def make_candidate(
+    player: str,
+    title: str,
+    artist: str,
+    source: str = PLAYBACK_SOURCE_WINDOW,
+) -> PlaybackCandidate:
+    return PlaybackCandidate(
+        song=SongInfo(title=title, artist=artist, player=player),
+        source=source,
+        playback_status="playing",
+        full_title=f"{title} - {artist}",
+    )
 
 
 class FakeSubsonic:
@@ -164,7 +189,7 @@ class TestMusicMonitor(unittest.TestCase):
 
         self.subsonic.error = None
         self.subsonic.result = True
-        self.monitor._next_unknown_retry = 0
+        self.monitor._unknown_retries["qq"].next_at = 0
         self.monitor._poll_once()
 
         self.assertEqual(len(self.monitor.play_history), 1)
@@ -178,7 +203,7 @@ class TestMusicMonitor(unittest.TestCase):
         self.monitor._poll_once()
 
         self.monitor._retry_interval = 0
-        self.monitor._next_unknown_retry = 0
+        self.monitor._unknown_retries["qq"].next_at = 0
         for _ in range(10):
             self.monitor._poll_once()
 
@@ -240,6 +265,143 @@ class TestMusicMonitor(unittest.TestCase):
         self.monitor._poll_once()
 
         self.assertEqual(len(self.subsonic.calls), 3)
+
+    def test_two_players_are_tracked_simultaneously(self):
+        detector = FakeMultiDetector()
+        detector.candidates = [
+            make_candidate("qq", "晴天", "周杰伦", PLAYBACK_SOURCE_SMTC),
+            make_candidate("netease", "稻香", "周杰伦", PLAYBACK_SOURCE_WINDOW),
+        ]
+        self.monitor.detector = detector
+        self.monitor._poll_once()
+
+        self.assertEqual(len(self.monitor.play_history), 2)
+        self.assertEqual(set(self.monitor.current_songs), {"qq", "netease"})
+        self.assertEqual(self.monitor.current_songs["qq"].title, "晴天")
+        self.assertEqual(self.monitor.current_songs["netease"].title, "稻香")
+        self.assertEqual(self.monitor.current_sources["qq"], PLAYBACK_SOURCE_SMTC)
+        self.assertEqual(
+            self.monitor.current_sources["netease"], PLAYBACK_SOURCE_WINDOW
+        )
+
+    def test_same_song_on_two_players_updates_selected_player(self):
+        detector = FakeMultiDetector()
+        detector.candidates = [
+            make_candidate("qq", "晴天", "周杰伦", PLAYBACK_SOURCE_SMTC),
+            make_candidate("netease", "晴天", "周杰伦", PLAYBACK_SOURCE_SMTC),
+        ]
+        self.monitor.detector = detector
+        self.monitor._poll_once()
+
+        self.assertEqual(len(self.monitor.play_history), 2)
+        self.assertEqual(len(self.subsonic.calls), 1)
+        self.assertTrue(
+            self.monitor.update_current_result(
+                "周杰伦", "晴天", False, player="netease"
+            )
+        )
+        self.assertTrue(self.monitor.current_records["qq"].in_library)
+        self.assertFalse(self.monitor.current_records["netease"].in_library)
+
+    def test_player_disappearing_only_clears_its_state(self):
+        detector = FakeMultiDetector()
+        detector.candidates = [
+            make_candidate("qq", "晴天", "周杰伦"),
+            make_candidate("netease", "稻香", "周杰伦"),
+        ]
+        self.monitor.detector = detector
+        self.monitor._poll_once()
+
+        detector.candidates = [make_candidate("netease", "稻香", "周杰伦")]
+        self.monitor._poll_once()
+
+        self.assertEqual(set(self.monitor.current_songs), {"netease"})
+        self.assertEqual(self.monitor.current_song.player, "netease")
+        self.assertEqual(len(self.monitor.play_history), 2)
+
+    def test_same_title_is_restored_after_transient_empty_poll(self):
+        self.detector.current = ("qq", "晴天 - 周杰伦")
+        self.monitor._poll_once()
+        self.detector.current = None
+        self.monitor._poll_once()
+        self.assertIsNone(self.monitor.current_song)
+
+        self.detector.current = ("qq", "晴天 - 周杰伦")
+        self.monitor._poll_once()
+
+        self.assertEqual(len(self.monitor.play_history), 1)
+        self.assertEqual(self.monitor.current_song.title, "晴天")
+        self.assertIsNotNone(self.monitor.current_record)
+
+    def test_same_title_after_long_absence_records_new_play(self):
+        self.detector.current = ("qq", "晴天 - 周杰伦")
+        self.monitor._poll_once()
+        self.detector.current = None
+        self.monitor._poll_once()
+
+        self.monitor._missing_since["qq"] = 0.0
+        self.monitor._poll_once()
+        self.detector.current = ("qq", "晴天 - 周杰伦")
+        self.monitor._poll_once()
+
+        self.assertEqual(len(self.monitor.play_history), 2)
+        self.assertEqual(self.monitor.current_song.title, "晴天")
+
+    def test_source_switch_for_same_song_does_not_duplicate(self):
+        detector = FakeMultiDetector()
+        detector.candidates = [
+            make_candidate("qq", "晴天", "周杰伦", PLAYBACK_SOURCE_SMTC)
+        ]
+        self.monitor.detector = detector
+        self.monitor._poll_once()
+
+        detector.candidates = [
+            make_candidate("qq", "晴天", "周杰伦", PLAYBACK_SOURCE_WINDOW)
+        ]
+        self.monitor._poll_once()
+
+        self.assertEqual(len(self.monitor.play_history), 1)
+        self.assertEqual(self.monitor.current_sources["qq"], PLAYBACK_SOURCE_WINDOW)
+
+    def test_unknown_retry_survives_transient_empty_poll(self):
+        self.subsonic.error = SubsonicError("临时超时")
+        self.detector.current = ("qq", "晴天 - 周杰伦")
+        self.monitor._poll_once()
+        self.detector.current = None
+        self.monitor._poll_once()
+
+        self.detector.current = ("qq", "晴天 - 周杰伦")
+        self.monitor._poll_once()
+        self.assertIn("qq", self.monitor._unknown_retries)
+
+        self.subsonic.error = None
+        self.subsonic.result = True
+        self.monitor._retry_interval = 0
+        self.monitor._unknown_retries["qq"].next_at = 0
+        self.monitor._poll_once()
+
+        self.assertTrue(self.monitor.current_record.in_library)
+        self.assertEqual(len(self.monitor.play_history), 1)
+
+    def test_unknown_retry_is_per_player(self):
+        self.subsonic.error = SubsonicError("临时超时")
+        detector = FakeMultiDetector()
+        detector.candidates = [
+            make_candidate("qq", "晴天", "周杰伦"),
+            make_candidate("netease", "稻香", "周杰伦"),
+        ]
+        self.monitor.detector = detector
+        self.monitor._poll_once()
+        self.assertEqual(len(self.monitor.play_history), 2)
+
+        self.subsonic.error = None
+        self.monitor._retry_interval = 0
+        self.monitor._unknown_retries["netease"].next_at = 0
+        self.monitor._poll_once()
+
+        self.assertTrue(self.monitor.current_records["netease"].in_library)
+        self.assertIsNone(self.monitor.current_records["qq"].in_library)
+        self.assertIn("qq", self.monitor._unknown_retries)
 
 
 if __name__ == "__main__":

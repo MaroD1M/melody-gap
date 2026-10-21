@@ -13,7 +13,7 @@ from typing import Dict, Tuple
 
 APP_NAME = "MelodyGap"                    # 单实例锁、日志、PyInstaller 名称
 APP_DISPLAY_NAME = "MelodyGap 曲库补漏"    # 界面显示名称
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 APP_TITLE = f"{APP_DISPLAY_NAME} v{APP_VERSION}"
 
 # 运行期文件名（均位于 get_app_dir() 目录）
@@ -26,10 +26,16 @@ ICON_FILE_NAME = "icon.ico"
 # 播放器配置
 # ============================================================
 # key: 内部标识；processes: 可能的进程名（统一小写比较）；
+# smtc_app_ids: Windows 媒体会话 AppUserModelId 匹配片段；
 # display_name: 界面显示；short_name: 通知/表格里的紧凑名称
 SUPPORTED_PLAYERS: Dict[str, Dict[str, object]] = {
     "qq": {
         "processes": ("qqmusic.exe",),
+        "smtc_app_ids": (
+            "qqmusic",
+            "tencent.qqmusic",
+            "tencent.qqmusicpc",
+        ),
         "display_name": "QQ音乐",
         "short_name": "QQ音乐",
     },
@@ -39,10 +45,34 @@ SUPPORTED_PLAYERS: Dict[str, Dict[str, object]] = {
             "neteasecloudmusic.exe",
             "neteasemusic.exe",
         ),
+        "smtc_app_ids": (
+            "cloudmusic",
+            "neteasecloudmusic",
+            "netease.cloudmusic",
+        ),
         "display_name": "网易云音乐",
         "short_name": "网易云",
     },
 }
+
+# 播放来源：系统媒体会话优先，窗口标题作为回退。
+PLAYBACK_SOURCE_SMTC = "smtc"
+PLAYBACK_SOURCE_WINDOW = "window"
+PLAYBACK_SOURCE_LABELS = {
+    PLAYBACK_SOURCE_SMTC: "系统媒体会话",
+    PLAYBACK_SOURCE_WINDOW: "窗口标题",
+}
+
+# SMTC 播放状态（字符串化后统一为下列取值）。
+PLAYBACK_STATUS_PLAYING = "playing"
+PLAYBACK_STATUS_PAUSED = "paused"
+PLAYBACK_STATUS_STOPPED = "stopped"
+PLAYBACK_STATUS_UNKNOWN = "unknown"
+
+# SMTC 轮询与异步调用超时。
+SMTC_POLL_INTERVAL_SECONDS = 2.0
+SMTC_REQUEST_TIMEOUT_SECONDS = 3.0
+SMTC_METADATA_TIMEOUT_SECONDS = 2.5
 
 # 由 SUPPORTED_PLAYERS 派生，避免在 UI 中重复写映射表
 PLAYER_DISPLAY_NAMES = {
@@ -137,6 +167,7 @@ MODIFIER_WORDS_ZH: Tuple[str, ...] = (
 MONITOR_INTERVAL_SECONDS = 2.0    # 监控轮询间隔
 PROCESS_CACHE_TTL_SECONDS = 5.0   # 进程列表缓存有效期
 MONITOR_STOP_TIMEOUT = 3.0        # 停止监控线程时等待上限
+PLAYER_STATE_RESET_SECONDS = 10.0  # 播放器消失多久后清空歌曲去重/恢复缓存
 UI_REFRESH_INTERVAL_MS = 1000     # 主窗口自动刷新间隔
 
 # 查询失败时自动重试。避免一次瞬时网络错误把歌曲永久标成“未知”。

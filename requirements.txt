@@ -1,6 +1,11 @@
 # MelodyGap 运行期依赖
-# Python 3.8+ / Windows 10/11
+# Python 3.9+ / Windows 10 1809+
 psutil>=5.9.0,<8
 requests>=2.28.0,<3
 pillow>=9.0.0,<14
 pystray>=0.19.0,<1
+
+# Windows 系统媒体会话（SMTC），用于后台/托盘播放检测。
+# 仅 Windows 安装；非 Windows 环境自动跳过。SMTC 不可用时由窗口标题回退。
+winrt-runtime>=3.2.1,<4; sys_platform == "win32"
+winrt-Windows.Media.Control[all]>=3.2.1,<4; sys_platform == "win32"

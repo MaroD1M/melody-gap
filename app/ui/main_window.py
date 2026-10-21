@@ -27,6 +27,8 @@ from app.constants import (
     MISSING_EXPORT_HEADERS,
     MISSING_STATUS_IGNORED,
     MISSING_STATUS_PENDING,
+    PLAYBACK_SOURCE_LABELS,
+    SUPPORTED_PLAYERS,
     UI_REFRESH_INTERVAL_MS,
 )
 from app.models import MissingSong, PlayRecord, SongInfo
@@ -143,6 +145,8 @@ class MainWindow:
         self._history_signature: Optional[Tuple] = None
         self._icon_photo = None
         self._current_song: Optional[SongInfo] = None
+        self._current_songs: Dict[str, SongInfo] = {}
+        self._current_rows: Dict[str, Dict[str, tk.Widget]] = {}
 
         self._missing_sort_column = "first_seen"
         self._missing_sort_reverse = True
@@ -352,86 +356,135 @@ class MainWindow:
         inner = tk.Frame(card, bg=COLOR_HERO_BG)
         inner.pack(fill="x", padx=24, pady=16)
 
-        left = tk.Frame(inner, bg=COLOR_HERO_BG)
-        left.pack(side="left", fill="both", expand=True)
+        header = tk.Frame(inner, bg=COLOR_HERO_BG)
+        header.pack(fill="x")
 
         tk.Label(
-            left,
+            header,
             text="正在播放",
             bg=COLOR_HERO_BG,
             fg=COLOR_HERO_MUTED,
             font=ui_font(9, "bold"),
-        ).pack(anchor="w")
+        ).pack(side="left")
 
-        self.current_song_label = tk.Label(
-            left,
-            text="暂无播放",
+        self._current_empty_label = tk.Label(
+            inner,
+            text="暂无播放 · 等待播放器开始播放",
             bg=COLOR_HERO_BG,
             fg=COLOR_HERO_TEXT,
-            font=ui_font(18, "bold"),
+            font=ui_font(15, "bold"),
             anchor="w",
         )
-        self.current_song_label.pack(anchor="w", pady=(5, 0))
 
-        self.current_meta_label = tk.Label(
-            left,
-            text="等待播放器开始播放",
-            bg=COLOR_HERO_BG,
-            fg=COLOR_HERO_MUTED,
-            font=ui_font(10),
-            anchor="w",
-        )
-        self.current_meta_label.pack(anchor="w", pady=(4, 0))
+        self._current_rows_frame = tk.Frame(inner, bg=COLOR_HERO_BG)
+        self._current_rows_frame.pack(fill="x", pady=(6, 0))
+        self._current_rows_frame.columnconfigure(0, weight=1)
 
-        right = tk.Frame(inner, bg=COLOR_HERO_BG)
-        right.pack(side="right", fill="y")
+        badge_colors = {
+            "qq": (COLOR_STAT_QQ_BG, COLOR_STAT_QQ_FG),
+            "netease": (COLOR_STAT_NETEASE_BG, COLOR_STAT_NETEASE_FG),
+        }
 
-        self.current_status_label = tk.Label(
-            right,
-            text="—",
-            bg=COLOR_STATUS_UNKNOWN_BG,
-            fg=COLOR_STATUS_UNKNOWN_FG,
-            font=ui_font(9, "bold"),
-            padx=12,
-            pady=4,
-        )
-        self.current_status_label.pack(anchor="e")
+        for index, (player_key, info) in enumerate(SUPPORTED_PLAYERS.items()):
+            row = tk.Frame(self._current_rows_frame, bg=COLOR_HERO_BG)
+            row.grid(row=index, column=0, sticky="ew", pady=(6, 0))
+            row.columnconfigure(1, weight=1)
 
-        actions = tk.Frame(right, bg=COLOR_HERO_BG)
-        actions.pack(anchor="e", pady=(10, 0))
+            badge_bg, badge_fg = badge_colors.get(
+                player_key, (COLOR_STAT_TOTAL_BG, COLOR_STAT_TOTAL_FG)
+            )
+            badge = tk.Label(
+                row,
+                text=str(info["short_name"]),
+                bg=badge_bg,
+                fg=badge_fg,
+                font=ui_font(9, "bold"),
+                padx=10,
+                pady=5,
+            )
+            badge.grid(row=0, column=0, rowspan=2, sticky="nw", padx=(0, 14))
 
-        self.current_copy_btn = self._make_button(
-            actions,
-            "复制歌名",
-            self.copy_current,
-            COLOR_HERO_ACCENT,
-            small=True,
-        )
-        self.current_copy_btn.configure(disabledforeground=COLOR_HERO_MUTED)
-        self.current_copy_btn.pack(side="right", padx=(8, 0))
+            title_label = tk.Label(
+                row,
+                text="",
+                bg=COLOR_HERO_BG,
+                fg=COLOR_HERO_TEXT,
+                font=ui_font(15, "bold"),
+                anchor="w",
+            )
+            title_label.grid(row=0, column=1, sticky="w")
 
-        self.current_copy_info_btn = self._make_button(
-            actions,
-            "复制信息",
-            self.copy_current_info,
-            COLOR_PRIMARY_SOFT,
-            small=True,
-            foreground=COLOR_PRIMARY_DARK,
-            hover_color=COLOR_BORDER,
-        )
-        self.current_copy_info_btn.configure(disabledforeground=COLOR_HERO_MUTED)
-        self.current_copy_info_btn.pack(side="right", padx=(8, 0))
+            meta_label = tk.Label(
+                row,
+                text="",
+                bg=COLOR_HERO_BG,
+                fg=COLOR_HERO_MUTED,
+                font=ui_font(10),
+                anchor="w",
+            )
+            meta_label.grid(row=1, column=1, sticky="w", pady=(2, 0))
 
-        self.current_recheck_btn = self._make_button(
-            actions,
-            "重新查询",
-            self.recheck_current,
-            "#FFFFFF",
-            small=True,
-            foreground=COLOR_PRIMARY_DARK,
-            hover_color=COLOR_PRIMARY_SOFT,
-        )
-        self.current_recheck_btn.pack(side="right", padx=(0, 8))
+            status_label = tk.Label(
+                row,
+                text="—",
+                bg=COLOR_STATUS_UNKNOWN_BG,
+                fg=COLOR_STATUS_UNKNOWN_FG,
+                font=ui_font(9, "bold"),
+                padx=12,
+                pady=4,
+            )
+            status_label.grid(
+                row=0, column=2, rowspan=2, sticky="e", padx=(12, 12)
+            )
+
+            actions = tk.Frame(row, bg=COLOR_HERO_BG)
+            actions.grid(row=0, column=3, rowspan=2, sticky="e")
+
+            copy_btn = self._make_button(
+                actions,
+                "复制歌名",
+                lambda p=player_key: self.copy_current(p),
+                COLOR_HERO_ACCENT,
+                small=True,
+            )
+            copy_btn.configure(disabledforeground=COLOR_HERO_MUTED)
+            copy_btn.pack(side="left", padx=(0, 8))
+
+            copy_info_btn = self._make_button(
+                actions,
+                "复制信息",
+                lambda p=player_key: self.copy_current_info(p),
+                COLOR_PRIMARY_SOFT,
+                small=True,
+                foreground=COLOR_PRIMARY_DARK,
+                hover_color=COLOR_BORDER,
+            )
+            copy_info_btn.configure(disabledforeground=COLOR_HERO_MUTED)
+            copy_info_btn.pack(side="left", padx=(0, 8))
+
+            recheck_btn = self._make_button(
+                actions,
+                "重新查询",
+                lambda p=player_key: self.recheck_current(p),
+                "#FFFFFF",
+                small=True,
+                foreground=COLOR_PRIMARY_DARK,
+                hover_color=COLOR_PRIMARY_SOFT,
+            )
+            recheck_btn.pack(side="left")
+
+            row.grid_remove()
+            self._current_rows[player_key] = {
+                "row": row,
+                "title": title_label,
+                "meta": meta_label,
+                "status": status_label,
+                "copy": copy_btn,
+                "copy_info": copy_info_btn,
+                "recheck": recheck_btn,
+            }
+
+        self._current_empty_label.pack(anchor="w", pady=(8, 4))
 
     def _create_stats_panel(self, parent: tk.Misc) -> None:
         stats_frame = tk.Frame(parent, bg=COLOR_WINDOW_BG)
@@ -1041,72 +1094,94 @@ class MainWindow:
             )
 
     def _update_current(self) -> None:
-        song = self.monitor.current_song
-        self._current_song = song
+        songs = dict(self.monitor.current_songs)
+        records = dict(self.monitor.current_records)
+        sources = dict(self.monitor.current_sources)
+        self._current_songs = songs
 
-        if song is None:
-            self.current_song_label.config(text="暂无播放", fg=COLOR_HERO_TEXT)
-            self.current_meta_label.config(
-                text="等待播放器开始播放", fg=COLOR_HERO_MUTED
-            )
-            self._set_current_status(
-                "—", COLOR_STATUS_UNKNOWN_BG, COLOR_STATUS_UNKNOWN_FG
-            )
-            self.current_copy_btn.config(state="disabled")
-            self.current_copy_info_btn.config(state="disabled")
-            self.current_recheck_btn.pack_forget()
+        ordered = [key for key in SUPPORTED_PLAYERS if key in songs]
+        ordered.extend(key for key in songs if key not in ordered)
+        self._current_song = songs[ordered[0]] if ordered else None
+
+        if not ordered:
+            self._current_empty_label.pack(anchor="w", pady=(8, 4))
+            for widgets in self._current_rows.values():
+                widgets["row"].grid_remove()
             return
 
-        self.current_song_label.config(text=song.title, fg=COLOR_HERO_TEXT)
-        self.current_meta_label.config(
-            text=f"{song.artist} · {song.player_name}",
-            fg=COLOR_HERO_MUTED,
-        )
-        self.current_copy_btn.config(state="normal")
-        self.current_copy_info_btn.config(state="normal")
+        self._current_empty_label.pack_forget()
 
-        record = self.monitor.current_record
+        for player_key, widgets in self._current_rows.items():
+            song = songs.get(player_key)
+            if song is None:
+                widgets["row"].grid_remove()
+                continue
+
+            widgets["row"].grid()
+            widgets["title"].config(text=song.title)
+            source = PLAYBACK_SOURCE_LABELS.get(
+                sources.get(player_key, ""), "自动检测"
+            )
+            artist = song.artist or "未知歌手"
+            widgets["meta"].config(text=f"{artist} · {source}")
+
+            record = records.get(player_key)
+            self._configure_current_actions(player_key, widgets, record)
+            self._set_current_status(
+                *self._current_status_spec(record),
+                player=player_key,
+            )
+
+    def _configure_current_actions(
+        self,
+        player_key: str,
+        widgets: Dict[str, tk.Widget],
+        record: Optional[PlayRecord],
+    ) -> None:
+        widgets["copy"].config(state="normal")
+        widgets["copy_info"].config(state="normal")
         can_recheck = record is not None and record.in_library is not True
         if can_recheck:
-            if not self.current_recheck_btn.winfo_manager():
-                self.current_recheck_btn.pack(side="right", padx=(0, 8))
+            if not widgets["recheck"].winfo_manager():
+                widgets["recheck"].pack(side="left")
         else:
-            self.current_recheck_btn.pack_forget()
+            widgets["recheck"].pack_forget()
 
+    def _current_status_spec(self, record: Optional[PlayRecord]) -> Tuple[str, str, str]:
         if record is None:
             if self.monitor.subsonic is None:
-                self._set_current_status(
+                return (
                     "未配置服务器",
                     COLOR_STATUS_UNKNOWN_BG,
                     COLOR_STATUS_UNKNOWN_FG,
                 )
-            else:
-                self._set_current_status(
-                    "查询中…",
-                    COLOR_STATUS_PENDING_BG,
-                    COLOR_STATUS_PENDING_FG,
-                )
-        elif record.in_library is True:
-            self._set_current_status(
-                "✓ 在库",
-                COLOR_STATUS_OK_BG,
-                COLOR_STATUS_OK_FG,
+            return (
+                "查询中…",
+                COLOR_STATUS_PENDING_BG,
+                COLOR_STATUS_PENDING_FG,
             )
-        elif record.in_library is False:
-            self._set_current_status(
-                "✕ 不在库",
-                COLOR_STATUS_MISSING_BG,
-                COLOR_STATUS_MISSING_FG,
-            )
-        else:
-            self._set_current_status(
-                "未知",
-                COLOR_STATUS_UNKNOWN_BG,
-                COLOR_STATUS_UNKNOWN_FG,
-            )
+        if record.in_library is True:
+            return "✓ 在库", COLOR_STATUS_OK_BG, COLOR_STATUS_OK_FG
+        if record.in_library is False:
+            return "✕ 不在库", COLOR_STATUS_MISSING_BG, COLOR_STATUS_MISSING_FG
+        return "未知", COLOR_STATUS_UNKNOWN_BG, COLOR_STATUS_UNKNOWN_FG
 
-    def _set_current_status(self, text: str, background: str, foreground: str) -> None:
-        self.current_status_label.config(text=text, bg=background, fg=foreground)
+    def _set_current_status(
+        self,
+        text: str,
+        background: str,
+        foreground: str,
+        player: Optional[str] = None,
+    ) -> None:
+        player_key = player
+        if player_key is None and self._current_song is not None:
+            player_key = self._current_song.player
+        if player_key is None:
+            return
+        widgets = self._current_rows.get(player_key)
+        if widgets is None:
+            return
+        widgets["status"].config(text=text, bg=background, fg=foreground)
 
     def _filtered_missing(self) -> List[MissingSong]:
         query = self._missing_search_var.get().strip().lower()
@@ -1475,13 +1550,13 @@ class MainWindow:
         self.app.request_recheck(entries, quiet=True)
         self._set_message(f"正在核验全部待补 {len(entries)} 首…")
 
-    def recheck_current(self) -> None:
-        song = self._current_song
+    def recheck_current(self, player: Optional[str] = None) -> None:
+        song = self._current_songs.get(player) if player else self._current_song
         if song is None:
             self._set_message("当前没有播放歌曲")
             return
         self.app.request_recheck_song(song)
-        self._set_message("正在重新查询当前歌曲…")
+        self._set_message(f"正在重新查询 {song.player_name} 当前歌曲…")
 
     def _open_search(self, platform: str, query: str) -> None:
         encoded = quote(query)
@@ -1737,19 +1812,19 @@ class MainWindow:
 
     # ---------- 其他 ----------
 
-    def copy_current(self) -> None:
+    def copy_current(self, player: Optional[str] = None) -> None:
         if self.window is None:
             return
-        song = self._current_song
+        song = self._current_songs.get(player) if player else self._current_song
         if song is None:
             self._set_message("当前没有播放歌曲")
             return
         self._write_clipboard(song.title, "已复制歌名")
 
-    def copy_current_info(self) -> None:
+    def copy_current_info(self, player: Optional[str] = None) -> None:
         if self.window is None:
             return
-        song = self._current_song
+        song = self._current_songs.get(player) if player else self._current_song
         if song is None:
             self._set_message("当前没有播放歌曲")
             return

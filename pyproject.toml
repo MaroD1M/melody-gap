@@ -1,6 +1,6 @@
 [tool.ruff]
 # 通过 pyproject 固定规则集，避免不同机器上的全局 ruff 配置导致结果不一致
-target-version = "py38"
+target-version = "py39"
 line-length = 100
 
 [tool.ruff.lint]

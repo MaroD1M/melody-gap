@@ -44,6 +44,20 @@ def _enable_windows_dpi_awareness() -> None:
         logger.debug("设置 DPI 感知失败，继续使用系统默认缩放", exc_info=True)
 
 
+def _run_packaging_smoke_test() -> int:
+    """验证冻结包内关键依赖可导入（不启动 GUI、不访问播放器）。"""
+    try:
+        import tkinter  # noqa: F401
+        import winrt.windows.media.control  # noqa: F401
+
+        from app.services.playback_detector import HybridPlaybackDetector  # noqa: F401
+    except Exception:
+        logger.exception("打包自检失败：关键依赖不可导入")
+        return 2
+    logger.info("打包自检通过：tkinter / WinRT SMTC / 混合检测器可导入")
+    return 0
+
+
 def _show_message(title: str, message: str, error: bool = False) -> None:
     """在无主窗口场景下弹系统消息框（失败则退回控制台）。"""
     try:
@@ -66,6 +80,9 @@ def main() -> int:
     app_dir = get_app_dir()
     setup_logging(app_dir)
     logger.info("启动 %s", APP_DISPLAY_NAME)
+
+    if "--smoke-test" in sys.argv[1:]:
+        return _run_packaging_smoke_test()
 
     if os.name != "nt":
         logger.error("当前平台不受支持：播放器检测依赖 Windows API")

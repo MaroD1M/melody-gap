@@ -10,12 +10,14 @@ UI 队列，再在主线程消费，禁止直接调用 ``show()``。
 ----
 * 右下角无边框悬浮窗，6 秒自动关闭；
 * 点击任意位置复制歌曲信息并关闭（无复制文本时只关闭）；
-* 绿色表示已在曲库，红色表示不在曲库/新待补，灰色表示无法查询。
+* 绿色表示已在曲库，红色表示不在曲库/新待补，灰色表示无法查询；
+* 两条歌曲几乎同时到达时进入队列，逐条展示，不会互相覆盖。
 """
 
 import logging
 import tkinter as tk
-from typing import Optional
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
 from app.constants import (
     NOTIFICATION_ALPHA,
@@ -42,13 +44,40 @@ from app.utils.clipboard import copy_text as write_clipboard
 
 logger = logging.getLogger(__name__)
 
+# 同时播放两个播放器时最多排队 5 条，避免长时间占用屏幕。
+_QUEUE_MAX = 5
+
+
+@dataclass
+class _Notification:
+    title: str
+    artist: str
+    status: Optional[bool]
+    player: str
+    is_new_missing: bool
+    copy_text: str
+
+    @property
+    def key(self) -> Tuple[str, str, Optional[bool], str, bool, str]:
+        return (
+            self.title,
+            self.artist,
+            self.status,
+            self.player,
+            self.is_new_missing,
+            self.copy_text,
+        )
+
 
 class NotificationWindow:
-    """曲库状态通知窗。"""
+    """曲库状态通知窗（带队列）。"""
 
     def __init__(self, root: tk.Misc) -> None:
         self.root = root
         self.window: Optional[tk.Toplevel] = None
+        self._queue: List[_Notification] = []
+        self._current: Optional[_Notification] = None
+        self._after_job: Optional[str] = None
 
     def show(
         self,
@@ -59,24 +88,52 @@ class NotificationWindow:
         is_new_missing: bool = False,
         copy_text: str = "",
     ) -> None:
-        """显示通知（主线程调用）。
+        """显示通知（主线程调用）；已有通知时排队。"""
+        item = _Notification(
+            title=title,
+            artist=artist,
+            status=status,
+            player=player,
+            is_new_missing=is_new_missing,
+            copy_text=copy_text,
+        )
+        if self._current is not None and self._current.key == item.key:
+            return
+        if any(queued.key == item.key for queued in self._queue):
+            return
 
-        Args:
-            title: 歌曲名
-            artist: 歌手名
-            status: True 在库、False 不在库、None 查询失败
-            player: 播放器标识
-            is_new_missing: 是否刚加入待补清单
-            copy_text: 点击通知时复制的文本；为空则只关闭
-        """
-        self.close()
+        if self._window_exists():
+            if len(self._queue) < _QUEUE_MAX:
+                self._queue.append(item)
+            else:
+                logger.debug("通知队列已满，忽略: %s", title)
+            return
 
-        if status is True:
+        self._show_now(item)
+
+    def _window_exists(self) -> bool:
+        if self.window is None:
+            return False
+        try:
+            return bool(self.window.winfo_exists())
+        except tk.TclError:
+            return False
+
+    def _show_now(self, item: _Notification) -> None:
+        self._current = item
+        try:
+            self._build_window(item)
+        except Exception:
+            logger.exception("创建通知窗口失败: %s", item.title)
+            self._finish_current(show_next=True)
+
+    def _build_window(self, item: _Notification) -> None:
+        if item.status is True:
             accent = COLOR_NOTIFICATION_OK
             icon_text = "✓"
-        elif status is False:
+        elif item.status is False:
             accent = COLOR_NOTIFICATION_MISSING
-            icon_text = "＋" if is_new_missing else "✕"
+            icon_text = "＋" if item.is_new_missing else "✕"
         else:
             accent = COLOR_NOTIFICATION_UNKNOWN
             icon_text = "?"
@@ -115,10 +172,10 @@ class NotificationWindow:
             font=ui_font(12, "bold"),
         ).pack(expand=True)
 
-        if status is True:
+        if item.status is True:
             status_text = "已在曲库中"
-        elif status is False:
-            status_text = "已加入待补清单" if is_new_missing else "不在曲库中"
+        elif item.status is False:
+            status_text = "已加入待补清单" if item.is_new_missing else "不在曲库中"
         else:
             status_text = "无法查询曲库"
         tk.Label(
@@ -129,10 +186,10 @@ class NotificationWindow:
             font=ui_font(10, "bold"),
         ).pack(side="left", padx=(10, 0))
 
-        if player:
+        if item.player:
             tk.Label(
                 status_frame,
-                text=player_display_name(player),
+                text=player_display_name(item.player),
                 bg=COLOR_HEADER_PILL_BG,
                 fg=COLOR_HEADER_MUTED,
                 font=ui_font(8, "bold"),
@@ -140,7 +197,7 @@ class NotificationWindow:
                 pady=3,
             ).pack(side="right")
 
-        song_text = title
+        song_text = item.title
         if len(song_text) > NOTIFICATION_TITLE_MAX:
             song_text = song_text[: NOTIFICATION_TITLE_MAX - 3] + "..."
 
@@ -153,7 +210,7 @@ class NotificationWindow:
             anchor="w",
         ).pack(fill="x")
 
-        artist_text = artist
+        artist_text = item.artist
         if len(artist_text) > NOTIFICATION_ARTIST_MAX:
             artist_text = artist_text[: NOTIFICATION_ARTIST_MAX - 3] + "..."
 
@@ -168,7 +225,7 @@ class NotificationWindow:
 
         hint_text = (
             "单击复制歌曲信息 · 6 秒后自动关闭"
-            if copy_text
+            if item.copy_text
             else "单击关闭 · 6 秒后自动关闭"
         )
         tk.Label(
@@ -180,9 +237,8 @@ class NotificationWindow:
             anchor="w",
         ).pack(fill="x", pady=(5, 0))
 
-        self._bind_click(shell, copy_text)
-
-        window.after(NOTIFICATION_DURATION_MS, self.close)
+        self._bind_click(shell, item.copy_text)
+        self._after_job = window.after(NOTIFICATION_DURATION_MS, self._advance)
 
     def _bind_click(self, widget: tk.Misc, text: str) -> None:
         """递归给容器及子控件绑定点击事件。"""
@@ -200,15 +256,33 @@ class NotificationWindow:
                 write_clipboard(self.root, text)
             except tk.TclError:
                 logger.warning("复制歌曲信息到剪贴板失败")
-        self.close()
+        self._advance()
+
+    def _advance(self) -> None:
+        """关闭当前通知，并展示下一条排队通知。"""
+        self._finish_current(show_next=True)
+
+    def _finish_current(self, show_next: bool) -> None:
+        if self.window is not None:
+            try:
+                if self._after_job is not None:
+                    self.window.after_cancel(self._after_job)
+            except tk.TclError:
+                pass
+            try:
+                self.window.destroy()
+            except tk.TclError:
+                pass
+            self.window = None
+        self._after_job = None
+        self._current = None
+
+        if not show_next or not self._queue:
+            return
+        item = self._queue.pop(0)
+        self._show_now(item)
 
     def close(self) -> None:
-        """关闭当前通知（幂等）。"""
-        if self.window is None:
-            return
-        try:
-            self.window.destroy()
-        except tk.TclError:
-            pass
-        finally:
-            self.window = None
+        """关闭当前通知并清空队列（应用退出时调用）。"""
+        self._queue.clear()
+        self._finish_current(show_next=False)
