@@ -1,9 +1,9 @@
 # MelodyGap 开发与维护手册
 
-> 版本：1.1.0
+> 版本：1.2.0
 > 适用范围：`melody-gap/` 全部源码
 > 目标读者：后续维护者、二次开发者、代码审查者
-> 最后更新：2026-10-21
+> 最后更新：2026-10-30
 
 本文档是项目的**唯一技术基准**。修改代码前请先阅读「线程模型」「数据流」
 「扩展指南」三节；新增功能后请同步更新本文档与「变更记录」。
@@ -745,7 +745,7 @@ Windows 原生播放器检测与真实托盘交互不在单元测试范围内。
 17. 导出 CSV → Excel 打开无乱码、含逗号的歌名完整；
 18. 播放记录右键复制、按当前筛选导出、清空确认默认“否”；
 19. 设置留空服务器地址 → 表单内联提示并聚焦该字段，不弹警告框；
-20. PyInstaller 单文件包在无 Python 环境运行，日志确认 SMTC 模块加载成功或已明确降级。
+20. PyInstaller 目录版/单文件包在无 Python 环境运行，日志确认 SMTC 模块加载成功或已明确降级。
 
 ### 13.4 新增测试要求
 
@@ -760,40 +760,68 @@ Windows 原生播放器检测与真实托盘交互不在单元测试范围内。
 
 ```bat
 pip install -r requirements-dev.txt
-
-pyinstaller --onefile --windowed ^
-  --name MelodyGap ^
-  --icon icon.ico ^
-  --add-data "icon.ico;." ^
-  --collect-submodules winrt ^
-  --collect-binaries winrt ^
-  main.py
+python scripts\build_release.py
 ```
 
-产物：`dist/MelodyGap.exe`。构建前建议执行
-`python -c "import winrt.windows.media.control"`，确认 WinRT 依赖已安装。
-构建后可执行 `dist\MelodyGap.exe --smoke-test`，验证冻结包能导入 tkinter、
-WinRT SMTC 与混合检测器；退出码 0 表示通过。GitHub Actions 发布流程会自动执行。
+构建脚本会依次构建单文件版与目录版，并输出到 `dist/`：
 
-#### 14.1 GitHub Actions 自动发布
+| 文件 | 说明 |
+|------|------|
+| `MelodyGap.exe` | 单文件版 |
+| `MelodyGap-windows-x64.zip` | 单文件版 + 配置示例 + 文档 |
+| `MelodyGap-portable-windows-x64.zip` | 目录版，推荐分发，误报更少 |
+| `SHA256SUMS.txt` / `MelodyGap.exe.sha256` | 校验值 |
+
+构建统一使用 `scripts/MelodyGap.spec`，特性：
+
+- 从 `app/constants.py` 的 `APP_VERSION` 生成四段式 Windows 版本资源；
+- 嵌入 `scripts/MelodyGap.manifest`（`asInvoker`、DPI、长路径、Common Controls v6）；
+- 禁用 UPX（`upx=False`）；
+- 收集 `winrt` 子模块与 DLL；
+- 构建后检查 `ProductName`、`ProductVersion` 与 `asInvoker` 是否真的进入 EXE。
+
+构建前建议执行 `python -c "import winrt.windows.media.control"`，确认 WinRT
+依赖已安装。构建后可执行 `--smoke-test`，验证冻结包能导入 tkinter、WinRT SMTC
+与混合检测器；退出码 0 表示通过。GitHub Actions 发布流程会自动执行。
+
+只构建一种模式：
+
+```bat
+set MELODYGAP_MODE=onedir
+pyinstaller --noconfirm --clean scripts\MelodyGap.spec
+```
+
+`MELODYGAP_MODE` 可取 `onedir`（默认）或 `onefile`。
+
+#### 14.1 降低杀毒软件误报
+
+未签名 PyInstaller 产物被误报属于常见现象。当前零成本措施包括：目录版优先、
+完整版本资源、应用程序清单、禁用 UPX、发布 SHA256、构建后元信息校验。详细
+说明和微软误报提交模板见 [FALSE_POSITIVES.md](FALSE_POSITIVES.md)。
+
+修改打包配置后必须运行 `tests/test_packaging.py`，确保版本号、清单、UPX 与
+发布产物没有被回退。
+
+#### 14.2 GitHub Actions 自动发布
 
 - `.github/workflows/ci.yml`：推送与 PR 在 Python 3.9 / 3.12 上运行 ruff + 单元测试，并在 Windows Python 3.9 上验证 WinRT 依赖与适用测试；
 - `.github/workflows/release.yml`：推送 `v*` 标签时在 Windows Runner 上运行测试、
-  打包单文件 exe、生成 ZIP 与 SHA256，并自动创建 GitHub Release；
-- GitHub 会自动附带源码 zip/tar 包，用户可直接下载源码或构建好的 exe；
-- 发布新版本：更新 `APP_VERSION` 与 `CHANGELOG.md`，提交后推送同名标签：
+  构建两种模式、校验 PE 版本资源、生成 ZIP 与 SHA256，并自动创建 GitHub Release；
+- GitHub 会自动附带源码 zip/tar 包，用户可直接下载源码或构建好的产物；
+- 发布新版本：更新 `app/constants.py` 的 `APP_VERSION`、`scripts/MelodyGap.manifest`
+  的 `assemblyIdentity` 版本与 `CHANGELOG.md`，提交后推送同名标签：
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 注意：
 
-- `--add-data` 分隔符 Windows 用 `;`，Linux/macOS 用 `:`；
 - 配置和日志写在 exe 同目录，发布时目录需可写（不要放 `Program Files`）；
-- 若使用自定义版本信息，可追加 `--version-file version_info.txt`；
-- 打包后先用 `--console` 版本跑一次，确认无缺失 DLL/隐式导入问题；重点检查日志中是否存在“SMTC 媒体会话管理器已就绪”或明确的降级原因。
+- 目录版解压后是 `MelodyGap\MelodyGap.exe`，不要只复制 EXE 而丢掉 `_internal`；
+- 打包后重点检查日志中是否存在“SMTC 媒体会话管理器已就绪”或明确的降级原因；
+- 不提交 `dist/`、`build/` 与任何真实配置。
 
 ---
 
@@ -953,6 +981,13 @@ value = True / False
 - 通知队列避免双播放器同时切歌时互相覆盖；
 - 托盘核验结果携带播放器，精确更新同名双播放器；
 - 最低 Python 版本升至 3.9，CI 覆盖 3.9/3.12，新增 SMTC/混合检测测试，全量 122 项离线测试。
+
+### 1.2.0（2026-10-30）
+
+- 新增目录版发布包，避免单文件运行时自解压导致的误报；
+- 构建脚本写入完整 Windows 版本资源、`asInvoker` 清单并禁用 UPX；
+- 发布流程同时构建单文件版/目录版，输出 `SHA256SUMS.txt`；
+- 新增误报处理文档与打包配置回归测试，全量 131 项离线测试。
 
 ## 20. 下一步优化路线（待讨论）
 

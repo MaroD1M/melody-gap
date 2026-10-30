@@ -5,8 +5,7 @@
     python main.py
 
 打包：
-    pyinstaller --onefile --windowed --name MelodyGap \
-        --icon icon.ico --add-data "icon.ico;." main.py
+    python scripts/build_release.py
 
 职责：
 1. 初始化日志；

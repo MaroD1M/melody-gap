@@ -65,13 +65,15 @@ Subsonic search3（旧服务器回退 search2）+ 歌名/歌手加权匹配
 
 ## 下载与安装
 
-### 方式一：下载构建好的 EXE
+### 方式一：下载构建好的 Windows 程序
 
 前往 [GitHub Releases](https://github.com/MaroD1M/melody-gap/releases/latest) 下载：
 
-- `MelodyGap.exe`：Windows 单文件程序，无需安装 Python；
-- `MelodyGap-windows-x64.zip`：EXE + 配置示例 + 说明文件；
-- `MelodyGap.exe.sha256`：校验文件；
+- `MelodyGap-portable-windows-x64.zip`：**推荐**。目录版，解压后运行
+  `MelodyGap\MelodyGap.exe`，不会在启动时自解压，杀毒软件误报更少；
+- `MelodyGap.exe`：Windows 单文件程序，无需安装 Python，适合只想保留一个文件的场景；
+- `MelodyGap-windows-x64.zip`：单文件 EXE + 配置示例 + 说明文件；
+- `SHA256SUMS.txt` / `MelodyGap.exe.sha256`：校验文件；
 - GitHub 同时提供源码 zip / tar 包。
 
 把程序放到**可写目录**（不要放 `Program Files`），双击运行即可。首次运行会在
@@ -79,6 +81,10 @@ EXE 同目录生成 `config.ini`、`missing_songs.json` 和日志文件。
 
 > Windows 10 1809 / 11。后台播放检测依赖 Windows SMTC，窗口回退依赖 Win32 API；
 > 其他系统只能运行核心逻辑，无法自动检测播放器。
+
+> **被安全软件拦截？** 未签名 EXE 可能被误报。请先核对 `SHA256SUMS.txt`
+> 和文件属性中的版本信息，再参考 [误报处理与文件核验](docs/FALSE_POSITIVES.md)。
+> 不要为了运行程序而关闭杀毒软件。
 
 ### 方式二：从源码运行
 
@@ -171,32 +177,40 @@ last_tab = 0
 
 ```bat
 pip install -r requirements-dev.txt
-
-pyinstaller --onefile --windowed ^
-  --name MelodyGap ^
-  --icon icon.ico ^
-  --add-data "icon.ico;." ^
-  --collect-submodules winrt ^
-  --collect-binaries winrt ^
-  main.py
+python scripts\build_release.py
 ```
 
-产物位于 `dist/MelodyGap.exe`。配置、待补清单与日志写在 EXE 同目录。
-可运行 `dist\MelodyGap.exe --smoke-test` 验证打包依赖，退出码 0 表示通过。
+脚本会构建并输出：
+
+- `dist/MelodyGap.exe`：单文件版；
+- `dist/MelodyGap-windows-x64.zip`：单文件版 + 配置示例 + 文档；
+- `dist/MelodyGap-portable-windows-x64.zip`：目录版（推荐）；
+- `dist/SHA256SUMS.txt`：三个产物的 SHA256。
+
+构建使用 `scripts/MelodyGap.spec`，自动嵌入完整版本资源与 `asInvoker` 清单，
+并显式禁用 UPX。只构建一种模式：
+
+```bat
+set MELODYGAP_MODE=onedir
+pyinstaller --noconfirm --clean scripts\MelodyGap.spec
+```
+
+产物位于 `dist/MelodyGap/`。配置、待补清单与日志写在 EXE 同目录。
+可运行 `dist\MelodyGap\MelodyGap.exe --smoke-test` 验证打包依赖，退出码 0 表示通过。
 
 ## 自动测试与发布
 
-- `.github/workflows/ci.yml`：每次 push / PR 在 Python 3.9 / 3.12 上运行 `ruff` 与 122 项单元测试，并在 Windows Python 3.9 上验证 WinRT 依赖与适用测试；
+- `.github/workflows/ci.yml`：每次 push / PR 在 Python 3.9 / 3.12 上运行 `ruff` 与 131 项单元测试，并在 Windows Python 3.9 上验证 WinRT 依赖、构建目录版并执行打包自检；
 - `.github/workflows/release.yml`：推送 `v*` 标签后，在 Windows Runner 上运行测试、
-  构建单文件 EXE、生成 ZIP 与 SHA256，并自动创建 GitHub Release；
-- GitHub 会自动附带源码包，用户可直接下载源码或自动构建的 EXE。
+  构建单文件与目录版、校验 PE 版本资源、生成 ZIP 与 SHA256，并自动创建 GitHub Release；
+- GitHub 会自动附带源码包，用户可直接下载源码或自动构建的产物。
 
 发布新版本：
 
 ```bash
-# 更新 APP_VERSION 与 CHANGELOG.md 后
-git tag v1.1.0
-git push origin v1.1.0
+# 更新 app/constants.py 的 APP_VERSION、scripts/MelodyGap.manifest 与 CHANGELOG.md 后
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 ## 开发
@@ -208,7 +222,8 @@ ruff check .
 ```
 
 测试覆盖标题解析、SMTC 映射/混合检测、匹配算法、Subsonic 客户端、配置、
-数据模型、待补清单、提醒策略、双播放器监控、剪贴板与设置表单，全部为离线测试。更多架构、线程模型与扩展说明见
+数据模型、待补清单、提醒策略、双播放器监控、剪贴板、设置表单与打包元信息，
+全部为离线测试。更多架构、线程模型与扩展说明见
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)，历史版本见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 项目结构
@@ -229,7 +244,9 @@ melody-gap/
 │   └── utils/                  # 单实例锁
 ├── docs/
 │   ├── DEVELOPMENT.md          # 开发与维护手册
+│   ├── FALSE_POSITIVES.md      # 误报处理与文件核验
 │   └── previews/               # 界面预览图
+├── scripts/                    # PyInstaller spec、清单与发布构建脚本
 ├── tests/                      # 标准库 unittest
 └── .github/                    # CI、Release 与 Issue 模板
 ```
@@ -248,6 +265,11 @@ melody-gap/
 
 **日志在哪里？**
 源码运行在项目根目录，EXE 运行在 EXE 同目录，文件名为 `melodygap.log`。
+
+**Windows Defender / 杀毒软件报毒？**
+这是未签名 PyInstaller 程序的常见误报。请先核对 Release 中的 SHA256 与文件
+版本信息，优先使用目录版；确认来源后可按
+[误报处理与文件核验](docs/FALSE_POSITIVES.md) 向微软或厂商提交误报。
 
 ## 贡献
 

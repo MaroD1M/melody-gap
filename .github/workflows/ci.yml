@@ -54,10 +54,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt ruff
+          pip install -r requirements-dev.txt
 
       - name: Verify WinRT dependency
         run: python -c "import winrt.windows.media.control"
 
       - name: Test
         run: python -m unittest discover -s tests -v
+
+      - name: Build portable executable
+        run: python scripts/build_release.py --only onedir --skip-tests
+
+      - name: Smoke test portable executable
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath build/pyinstaller/out/onedir/MelodyGap/MelodyGap.exe -ArgumentList "--smoke-test" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "目录版打包自检失败，退出码 $($process.ExitCode)" }

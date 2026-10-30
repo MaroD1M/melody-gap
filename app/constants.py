@@ -13,7 +13,7 @@ from typing import Dict, Tuple
 
 APP_NAME = "MelodyGap"                    # 单实例锁、日志、PyInstaller 名称
 APP_DISPLAY_NAME = "MelodyGap 曲库补漏"    # 界面显示名称
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 APP_TITLE = f"{APP_DISPLAY_NAME} v{APP_VERSION}"
 
 # 运行期文件名（均位于 get_app_dir() 目录）

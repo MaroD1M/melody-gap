@@ -27,6 +27,7 @@ missing_songs.corrupt_*.json
 build/
 dist/
 *.spec
+!scripts/MelodyGap.spec
 *.zip
 release/
 

@@ -38,6 +38,12 @@ def setup_logging(log_dir: Optional[Path] = None, level: int = logging.INFO) -> 
     # PyInstaller --windowed 模式下 sys.stdout/stderr 可能为 None，
     # 此时跳过控制台 handler，只写文件日志。
     if sys.stdout is not None:
+        # 重定向到非 UTF-8 代码页时，中文日志可能触发 UnicodeEncodeError
+        # 并打断启动流程；保留当前编码，只替换无法编码的字符。
+        try:
+            sys.stdout.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError):
+            pass
         console = logging.StreamHandler(stream=sys.stdout)
         console.setFormatter(formatter)
         root.addHandler(console)

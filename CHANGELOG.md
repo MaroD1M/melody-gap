@@ -3,6 +3,26 @@
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] - 2026-10-30
+
+### Added
+
+- 新增目录版发布包 `MelodyGap-portable-windows-x64.zip`，启动时无需自解压，降低杀毒软件误报概率。
+- 新增 `scripts/MelodyGap.spec`、`scripts/build_release.py`、Windows 版本资源与应用程序清单，本地和 CI 使用同一套构建配置。
+- 新增 `docs/FALSE_POSITIVES.md`：说明误报原因、SHA256/版本信息核验方法，以及向微软等厂商免费提交误报的模板。
+- 新增打包配置回归测试，覆盖版本资源、清单、UPX 禁用与发布产物。
+
+### Changed
+
+- 发布构建写入完整的公司、产品、文件说明、版本与版权信息，并嵌入 `asInvoker`、DPI 感知、长路径与 Common Controls v6 清单。
+- 显式禁用 UPX，避免压缩壳引起额外误报。
+- 发布流程同时构建单文件版与目录版，校验 EXE 版本资源，并输出 `SHA256SUMS.txt`。
+- 版本号升级至 1.2.0。
+
+### Fixed
+
+- 修复控制台代码页不支持中文时，日志输出可能触发 `UnicodeEncodeError` 并打断启动的问题。
+
 ## [1.1.0] - 2026-10-21
 
 ### Added

@@ -37,32 +37,36 @@ jobs:
       - name: Verify WinRT dependency
         run: python -c "import winrt.windows.media.control"
 
-      - name: Build executable
+      - name: Build release artifacts
+        run: python scripts/build_release.py --skip-tests
+
+      - name: Verify executable metadata
+        shell: pwsh
         run: |
-          pyinstaller --onefile --windowed --name MelodyGap --icon icon.ico --add-data "icon.ico;." --collect-submodules winrt --collect-binaries winrt main.py
+          $exe = "dist/MelodyGap.exe"
+          $info = (Get-Item $exe).VersionInfo
+          $expected = (python -c "from app.constants import APP_VERSION; print(APP_VERSION)").Trim()
+          if ($info.ProductName -ne "MelodyGap") { throw "ProductName 缺失" }
+          if (-not $info.ProductVersion.StartsWith($expected)) { throw "ProductVersion 不符: $($info.ProductVersion) != $expected" }
+          if ($info.CompanyName -ne "MaroD1M") { throw "CompanyName 缺失" }
+          Write-Host "版本资源: $($info.ProductName) $($info.ProductVersion) / $($info.CompanyName)"
 
       - name: Smoke test executable
         shell: pwsh
         run: |
-          $process = Start-Process -FilePath dist/MelodyGap.exe -ArgumentList "--smoke-test" -Wait -PassThru
-          if ($process.ExitCode -ne 0) {
-            if (Test-Path dist/melodygap.log) { Get-Content dist/melodygap.log -Tail 50 }
-            throw "MelodyGap.exe 打包自检失败，退出码 $($process.ExitCode)"
+          $targets = @("dist/MelodyGap.exe", "build/pyinstaller/out/onedir/MelodyGap/MelodyGap.exe")
+          foreach ($target in $targets) {
+            if (-not (Test-Path $target)) { throw "缺少构建产物: $target" }
+            $process = Start-Process -FilePath $target -ArgumentList "--smoke-test" -Wait -PassThru
+            if ($process.ExitCode -ne 0) {
+              $log = Join-Path (Split-Path $target) "melodygap.log"
+              if (Test-Path $log) { Get-Content $log -Tail 50 }
+              throw "$target 打包自检失败，退出码 $($process.ExitCode)"
+            }
+            Write-Host "$target 自检通过"
           }
 
-      - name: Package release files
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path release | Out-Null
-          Copy-Item dist/MelodyGap.exe release/
-          Copy-Item config.ini.example release/
-          Copy-Item README.md release/
-          Copy-Item LICENSE release/
-          Compress-Archive -Path release/* -DestinationPath dist/MelodyGap-windows-x64.zip -Force
-          $hash = (Get-FileHash dist/MelodyGap.exe -Algorithm SHA256).Hash.ToLower()
-          "$hash  MelodyGap.exe" | Out-File -Encoding ascii dist/MelodyGap.exe.sha256
-
-      - name: Upload build artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
           name: MelodyGap-windows-x64
@@ -70,6 +74,8 @@ jobs:
             dist/MelodyGap.exe
             dist/MelodyGap.exe.sha256
             dist/MelodyGap-windows-x64.zip
+            dist/MelodyGap-portable-windows-x64.zip
+            dist/SHA256SUMS.txt
           if-no-files-found: error
 
       - name: Publish GitHub Release
@@ -83,3 +89,5 @@ jobs:
             dist/MelodyGap.exe
             dist/MelodyGap.exe.sha256
             dist/MelodyGap-windows-x64.zip
+            dist/MelodyGap-portable-windows-x64.zip
+            dist/SHA256SUMS.txt
