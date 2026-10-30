@@ -51,6 +51,17 @@ def _load_version() -> str:
 APP_VERSION = _load_version()
 
 
+def _configure_console() -> None:
+    """确保 Windows 非 UTF-8 控制台也能输出中文构建日志。"""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None:
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def run(command: list, env: dict = None) -> None:
     """运行子命令，失败时抛出异常。"""
     print("+", " ".join(str(item) for item in command), flush=True)
@@ -138,6 +149,7 @@ def main() -> int:
         help="只构建一种模式，默认两种都构建",
     )
     args = parser.parse_args()
+    _configure_console()
 
     if not args.skip_tests:
         run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"])
