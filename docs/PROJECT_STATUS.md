@@ -29,27 +29,38 @@
 | 版本 | `2.0.1` |
 | 分支 | `main` |
 | 主要实现 | `rust/`（Tauri 2 + Svelte 5） |
-| 上一版 | `v2.0.0`（Rust 首次发布；存在 localhost:5173 启动问题） |
-| 标签 | `v2.0.1`（本次修复发布） |
-| Release | 推送 `v2.0.1` 后由 `.github/workflows/release.yml` 自动构建 |
+| 标签 | `v2.0.1` |
+| Release | <https://github.com/MaroD1M/melody-gap/releases/tag/v2.0.1> |
+| 发布时间 | 2026-11-04 16:19 UTC |
+| CI | `41861400668`，成功 |
+| Release 构建 | `41864343889`，成功 |
 | 推荐产物 | `MelodyGap-portable-windows-x64.zip` |
 | 测试 | 122 项 Rust 测试 |
 
-发布资产在 Release 成功后由工作流生成：
+发布资产：
 
-| 文件 | 说明 |
-|------|------|
-| `MelodyGap-portable-windows-x64.zip` | 便携目录版，推荐 |
-| `MelodyGap.exe` | Windows 可执行文件；MSVC 构建静态链接 WebView2 Loader |
-| `SHA256SUMS.txt` | EXE 与 ZIP 的 SHA256 |
+| 文件 | 大小 | SHA256 |
+|------|------|--------|
+| `MelodyGap-portable-windows-x64.zip` | 3,596,161 B | `996ead96df0007c6c44258503a078684883c6d9faef02b9fb5313d93387e0a14` |
+| `MelodyGap.exe` | 8,158,208 B | `e5ac1b04a2bd72e19b5ccd2b636b8acac1c65dc68b4ab596a176296441f776e5` |
+| `SHA256SUMS.txt` | 191 B | 见 Release 页面 |
 
 官方 Windows Runner 使用 MSVC 构建，EXE 静态链接 WebView2 Loader，因此 ZIP 内只有
 EXE、配置示例与 LICENSE；本地 Linux 交叉编译（GNU）产物需要额外携带
 `WebView2Loader.dll`，哈希不会与官方 Release 一致。
 
-v2.0.1 修复内容：发布构建启用 Tauri `custom-protocol`，避免 EXE 打开
-`http://localhost:5173`；补全 Windows 公司名/版权/原始文件名等版本资源；替换
-应用与托盘图标；修复 Subsonic 测试的并发偶发失败。
+v2.0.1 修复内容：
+
+- 发布构建启用 Tauri `custom-protocol`，官方 EXE 已确认包含 `/assets/index-...`
+  前端资源，不再打开 `http://localhost:5173`；
+- `build.rs` 与 CI 验证步骤增加防回归检查；
+- 补全 Windows 版本资源：`CompanyName=MaroD1M`、`OriginalFilename=MelodyGap.exe`、
+  版权、内部名称与备注；
+- 替换应用、托盘与通知窗口图标；
+- 修复 Subsonic 测试并发偶发失败，并对瞬时请求错误增加一次安全重试；
+- 迁移已弃用的 `lucide-svelte` 到 `@lucide/svelte`。
+
+上一版 `v2.0.0` 为 Rust 首次发布，存在启动后连接开发服务器的缺陷，已由 2.0.1 修复。
 
 ## 3. 产品定位与边界
 
@@ -178,7 +189,7 @@ Tauri 事件循环
 
 ### P0：发布闭环
 
-1. 完成 v2.0.1 Windows CI 与 Release 构建；
+1. v2.0.1 Windows CI 与 Release 已通过；
 2. 在一台 Windows 10/11 上执行实机验收清单；
 3. 核对 EXE 版本资源、SHA256、托盘/通知/播放器检测；
 4. 记录已知兼容性问题后再扩大宣传。
