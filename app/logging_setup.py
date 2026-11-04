@@ -29,7 +29,7 @@ def setup_logging(log_dir: Optional[Path] = None, level: int = logging.INFO) -> 
         应用根日志器。
     """
     root = logging.getLogger()
-    if getattr(root, "_mlm_configured", False):
+    if getattr(root, "_melodygap_configured", False):
         return logging.getLogger(APP_NAME)
 
     root.setLevel(level)
@@ -65,5 +65,5 @@ def setup_logging(log_dir: Optional[Path] = None, level: int = logging.INFO) -> 
 
     # 降低第三方库噪音（requests/urllib3）
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    setattr(root, "_mlm_configured", True)
+    setattr(root, "_melodygap_configured", True)
     return logging.getLogger(APP_NAME)

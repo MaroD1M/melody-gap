@@ -4,6 +4,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from app.config_manager import ConfigManager
 
@@ -78,6 +79,22 @@ class TestConfigManager(unittest.TestCase):
         self.assertEqual(manager.get_subsonic_config()["username"], "demo")
         self.assertFalse(
             list(self.config_path.parent.glob("config.corrupt_*.ini"))
+        )
+
+    def test_save_failure_keeps_original_and_removes_temp_file(self):
+        manager = ConfigManager(self.config_path)
+        manager.update_subsonic_config("https://example.com/", "demo", "secret")
+        original = self.config_path.read_text(encoding="utf-8")
+
+        with mock.patch.object(
+            manager.config, "write", side_effect=OSError("disk full")
+        ):
+            with self.assertRaises(OSError):
+                manager.save()
+
+        self.assertEqual(self.config_path.read_text(encoding="utf-8"), original)
+        self.assertFalse(
+            self.config_path.with_name(self.config_path.name + ".tmp").exists()
         )
 
     def test_corrupt_config_is_backed_up_instead_of_overwritten(self):

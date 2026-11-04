@@ -33,24 +33,29 @@ class HybridPlaybackDetector:
         self.smtc_detector = smtc_detector if smtc_detector is not None else SmtcDetector()
 
     def start(self) -> None:
+        """启动 SMTC 后台轮询；不支持时静默跳过，窗口检测仍可用。"""
         start = getattr(self.smtc_detector, "start", None)
         if callable(start):
             start()
 
     def stop(self) -> None:
+        """停止 SMTC 后台轮询（幂等）。"""
         stop = getattr(self.smtc_detector, "stop", None)
         if callable(stop):
             stop()
 
     @property
     def smtc_available(self) -> bool:
+        """SMTC 管理器是否已就绪；``False`` 时自动回退窗口标题。"""
         return bool(getattr(self.smtc_detector, "available", False))
 
     @property
     def smtc_error(self) -> Optional[str]:
+        """最近一次 SMTC 初始化/读取错误，供日志与状态展示。"""
         return getattr(self.smtc_detector, "last_error", None)
 
     def get_current_playings(self) -> List[PlaybackCandidate]:
+        """返回每个支持播放器的当前候选（SMTC 优先，窗口仅补缺失项）。"""
         smtc_candidates: Dict[str, PlaybackCandidate] = {}
         for candidate in self.smtc_detector.snapshot():
             if (

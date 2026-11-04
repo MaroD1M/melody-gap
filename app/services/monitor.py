@@ -395,7 +395,6 @@ class MusicMonitor:
                     self._last_records.pop(player_key, None)
                     self._unknown_retries.pop(player_key, None)
 
-
     def _poll_once(self) -> None:
         """执行一次检测，分别更新每个正在播放的播放器。"""
         candidates = self._select_candidates(self._detect_candidates())

@@ -122,6 +122,7 @@ class SmtcDetector:
 
     @property
     def platform_supported(self) -> bool:
+        """当前平台是否具备 SMTC 支持（仅 Windows）。"""
         return os.name == "nt"
 
     @property
@@ -132,6 +133,7 @@ class SmtcDetector:
 
     @property
     def last_error(self) -> Optional[str]:
+        """最近一次 SMTC 初始化/读取错误；成功后清空。"""
         with self._lock:
             return self._last_error
 

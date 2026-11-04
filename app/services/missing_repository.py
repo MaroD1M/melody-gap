@@ -74,6 +74,7 @@ class MissingRepository:
             logger.info("待补清单已加载: %d 首", len(self._entries))
 
     def _backup_corrupt_locked(self) -> None:
+        """把损坏的清单改名备份；调用方必须已持有 ``_lock``。"""
         if not self.path.exists():
             return
         suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -85,6 +86,11 @@ class MissingRepository:
             logger.exception("备份损坏的待补清单失败")
 
     def _save_locked(self) -> None:
+        """原子写入 JSON；调用方必须已持有 ``_lock``。
+
+        先写同目录 ``.tmp`` 再替换，避免异常退出留下半个文件。写入失败会
+        抛出 ``OSError``，由上层决定是否提示用户。
+        """
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "version": 1,
@@ -97,9 +103,16 @@ class MissingRepository:
             ],
         }
         temp_path = self.path.with_name(f"{self.path.name}.tmp")
-        with temp_path.open("w", encoding="utf-8") as fp:
-            json.dump(payload, fp, ensure_ascii=False, indent=2)
-        temp_path.replace(self.path)
+        try:
+            with temp_path.open("w", encoding="utf-8") as fp:
+                json.dump(payload, fp, ensure_ascii=False, indent=2)
+            temp_path.replace(self.path)
+        except OSError:
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+            raise
 
     # ---------- 查询 ----------
 
@@ -109,11 +122,13 @@ class MissingRepository:
             return [MissingSong.from_dict(entry.to_dict()) for entry in self._entries.values()]
 
     def get(self, key: str) -> Optional[MissingSong]:
+        """按去重键返回副本；不存在时返回 ``None``。"""
         with self._lock:
             entry = self._entries.get(key)
             return MissingSong.from_dict(entry.to_dict()) if entry else None
 
     def count_pending(self) -> int:
+        """返回状态为“待补”的歌曲数量（忽略项不计入）。"""
         with self._lock:
             return sum(1 for entry in self._entries.values() if entry.is_pending)
 
@@ -135,6 +150,7 @@ class MissingRepository:
     def _add_missing(
         self, record: PlayRecord, count_play: bool
     ) -> Tuple[Optional[MissingSong], bool]:
+        """新增/更新缺失记录；``count_play`` 控制是否累计播放次数。"""
         if record.in_library is not False:
             return None, False
 
@@ -165,6 +181,7 @@ class MissingRepository:
         return self.remove_key(make_song_key(artist, title))
 
     def remove_key(self, key: str) -> bool:
+        """按去重键删除；返回是否确实删除了记录。"""
         with self._lock:
             if key not in self._entries:
                 return False
@@ -173,6 +190,7 @@ class MissingRepository:
             return True
 
     def set_status(self, key: str, status: str) -> bool:
+        """更新待补/忽略状态；未知状态抛 ``ValueError``。"""
         if status not in MISSING_STATUS_LABELS:
             raise ValueError(f"未知的待补状态: {status}")
         with self._lock:
@@ -184,6 +202,7 @@ class MissingRepository:
             return True
 
     def clear(self) -> None:
+        """清空清单并立即落盘。"""
         with self._lock:
             self._entries.clear()
             self._save_locked()

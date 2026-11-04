@@ -107,10 +107,24 @@ class ConfigManager:
             logger.exception("备份损坏的配置文件失败")
 
     def save(self) -> None:
-        """将当前配置写回文件。"""
+        """将当前配置原子写回文件。
+
+        先写同目录临时文件再替换目标文件，避免程序在写入中途退出时把原配置
+        截断成半个 INI。替换失败时保留原文件并清理临时文件，把 ``OSError``
+        交给调用方决定是否提示用户。
+        """
         self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.config_path.open("w", encoding="utf-8") as fp:
-            self.config.write(fp)
+        temp_path = self.config_path.with_name(f"{self.config_path.name}.tmp")
+        try:
+            with temp_path.open("w", encoding="utf-8") as fp:
+                self.config.write(fp)
+            temp_path.replace(self.config_path)
+        except OSError:
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+            raise
 
     def _create_default(self) -> None:
         """写入默认占位配置，方便用户直接编辑。"""
