@@ -3,6 +3,38 @@
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.0.0] - 2026-11-04
+
+### Added
+
+- 桌面端由 Python/Tkinter 重写为 Rust + Tauri 2 + Svelte 5，发布体积更小、启动更快，不再依赖 PyInstaller 自解压。
+- 新增 `crates/melodygap-core`：标题解析、匹配、Subsonic、监控、配置、提醒、待补仓库与 SMTC 纯逻辑，全部可离线测试。
+- 新增 Tauri 后端：单实例、托盘、通知窗、窗口状态记忆、便携 WebView2 数据目录、CSV/TXT 导出与 17 个命令接口。
+- 新增 Svelte 前端：深色品牌栏、当前播放 Hero 卡、可点击统计卡、双页签、右键菜单、通知窗与响应式布局。
+- 待补清单支持 `Ctrl` / `Shift` 多选、`Ctrl+A` / `Ctrl+C`，以及批量忽略、恢复、删除和核验。
+- 新增 `docs/PROJECT_STATUS.md`、Rust 开发手册、界面预览与误报处理文档。
+- 新增 `--smoke-test` 便携包自检；Windows CI 构建后自动执行。
+
+### Changed
+
+- CI 与 Release 工作流全面切换到 Windows + Rust/pnpm，构建 `MelodyGap-portable-windows-x64.zip` 并生成 SHA256。
+- 主窗口改为每 1 秒读取一次快照，播放停止、查询错误和统计变化不再依赖记录回调。
+- “核验待补”只处理待补状态；单曲核验恢复通知反馈；导出待补清单遵循当前排序。
+- 设置校验统一为后端规则：URL 协议、用户名、密码、冷却时间 0～1440 分钟。
+- 通知窗支持透明背景、首条通知恢复、前后端计时去重与队列最多 5 条。
+- Python 参考实现同步补充配置/待补清单原子写入、日志标记与文档说明。
+
+### Removed
+
+- 移除 PyInstaller 单文件/自解压发布方式；v2 只提供目录版便携 ZIP。
+- 移除 Python 运行时、Tkinter、pystray 与 WinRT Python 依赖。
+
+### Fixed
+
+- 修复负坐标窗口几何解析、CSV UTF-8 BOM/CRLF、通知窗首条丢失与误关闭。
+- 修复待补清单批量操作覆盖单条逻辑、统计卡无法筛选、右键菜单底部被裁剪等问题。
+- 修复 WebView2 数据写入用户目录的问题，改为 EXE 同目录 `webview2-data/`。
+
 ## [1.2.0] - 2026-10-30
 
 ### Added

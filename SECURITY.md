@@ -21,15 +21,17 @@
 ## 凭据与数据
 
 - MelodyGap 将 Subsonic / Navidrome 密码以明文保存在本地 `config.ini`；
-- `config.ini`、日志和待补清单默认被 `.gitignore` 忽略；
+- `config.ini`、日志、待补清单和 WebView2 数据默认被 `.gitignore` 忽略；
 - 日志不应记录密码或认证 token；
 - 不要把 `config.ini`、日志或导出的清单提交到公开仓库；
 - 建议使用仅能访问音乐库的独立账号，并限制服务器暴露范围。
 
 ## 构建与发布
 
-- 发布包由 GitHub Actions 从公开源码构建，构建脚本为 `scripts/build_release.py`；
-- EXE 包含完整 Windows 版本资源与 `asInvoker` 清单，构建时禁用 UPX；
+- 发布包由 GitHub Actions 从公开源码构建，工作流为
+  `.github/workflows/release.yml`；
+- 桌面端使用 Rust + Tauri 2；Windows MSVC 构建静态链接 WebView2 Loader，
+  GNU 交叉构建则随便携包分发 `WebView2Loader.dll`；
 - 每个 Release 提供 `SHA256SUMS.txt`，下载后可自行核对；
 - 当前发布版本未使用商业代码签名证书，安全软件可能误报；处理方式见
   [docs/FALSE_POSITIVES.md](docs/FALSE_POSITIVES.md)。
@@ -40,4 +42,4 @@
 - 曲库匹配误判；
 - 未签名的开源构建被个别安全软件误报（可按误报流程反馈）；
 - 需要物理访问用户机器才能利用的问题；
-- 第三方播放器、Subsonic 服务端或网络环境自身的漏洞。
+- 第三方播放器、Subsonic 服务端、WebView2 Runtime 或网络环境自身的漏洞。

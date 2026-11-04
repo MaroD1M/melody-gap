@@ -1,75 +1,86 @@
 # -*- coding: utf-8 -*-
-"""打包配置回归测试。
+"""Rust/Tauri 发布配置回归测试。
 
-这些测试不依赖 Windows，只检查版本资源生成逻辑、清单与发布脚本是否
-仍然满足“可核验、低误报”的约束。
+这些测试不依赖 Windows 或真实构建，只检查版本号、Tauri 便携目录配置
+以及 CI/Release 工作流是否仍然满足 v2 的发布约束。
 """
 
-import sys
+import json
+import re
 import unittest
 from pathlib import Path
 
-from app.constants import APP_VERSION
-from scripts.win_version import build_version_info, version_tuple
-
 ROOT = Path(__file__).resolve().parent.parent
+RUST = ROOT / "rust"
 
 
-class VersionTupleTests(unittest.TestCase):
-    def test_three_part_version_is_padded(self):
-        self.assertEqual(version_tuple("1.2.0"), (1, 2, 0, 0))
-
-    def test_version_with_suffix_uses_numbers(self):
-        self.assertEqual(version_tuple("1.2.3-rc4"), (1, 2, 3, 4))
-
-    def test_short_version_is_padded(self):
-        self.assertEqual(version_tuple("2"), (2, 0, 0, 0))
+def read(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
 
-@unittest.skipUnless(sys.platform == "win32", "版本资源结构仅在 Windows 可导入")
-class WindowsVersionInfoTests(unittest.TestCase):
-    def test_resource_contains_identity_and_version(self):
-        info = build_version_info(APP_VERSION, "MelodyGap 曲库补漏")
-        text = str(info)
-        for value in ("MaroD1M", "MelodyGap", "MelodyGap.exe", APP_VERSION):
-            self.assertIn(value, text)
+class RustVersionTests(unittest.TestCase):
+    def test_workspace_and_app_versions_match(self):
+        cargo = read(RUST / "Cargo.toml")
+        workspace = re.search(
+            r"\[workspace\.package\](.*?)(?:\n\[|\Z)", cargo, re.S
+        )
+        self.assertIsNotNone(workspace)
+        cargo_version = re.search(
+            r'^version = "([^"]+)"', workspace.group(1), re.M
+        ).group(1)
+
+        tauri = json.loads(read(RUST / "src-tauri" / "tauri.conf.json"))
+        package = json.loads(read(RUST / "package.json"))
+        constants = read(
+            RUST / "crates" / "melodygap-core" / "src" / "constants.rs"
+        )
+        app_version = re.search(
+            r'APP_VERSION: &str = "([^"]+)"', constants
+        ).group(1)
+
+        self.assertEqual(
+            {
+                cargo_version,
+                tauri["version"],
+                package["version"],
+                app_version,
+            },
+            {"2.0.0"},
+        )
 
 
-class PackagingFilesTests(unittest.TestCase):
-    def test_manifest_requests_as_invoker_and_version_matches(self):
-        manifest = (ROOT / "scripts" / "MelodyGap.manifest").read_text(encoding="utf-8")
-        self.assertIn('level="asInvoker"', manifest)
-        self.assertIn('version="%s.0"' % APP_VERSION, manifest)
-        self.assertIn("dpiAware", manifest)
-        self.assertIn("longPathAware", manifest)
+class RustPackagingFilesTests(unittest.TestCase):
+    def test_tauri_uses_portable_webview_data_directory(self):
+        config = json.loads(read(RUST / "src-tauri" / "tauri.conf.json"))
+        override = config["app"].get("appDirectoriesOverride", {})
+        self.assertEqual(override.get("localData"), "./webview2-data")
+        self.assertFalse(config["bundle"]["active"])
 
-    def test_spec_embeds_metadata_and_disables_upx(self):
-        spec = (ROOT / "scripts" / "MelodyGap.spec").read_text(encoding="utf-8")
-        self.assertIn("build_version_info", spec)
-        self.assertIn("manifest=MANIFEST_PATH", spec)
-        self.assertIn("upx=False", spec)
-        self.assertIn('collect_submodules("winrt")', spec)
-        self.assertIn('collect_dynamic_libs("winrt")', spec)
-
-    def test_release_builds_both_modes(self):
-        script = (ROOT / "scripts" / "build_release.py").read_text(encoding="utf-8")
-        self.assertIn('["onefile", "onedir"]', script)
-        self.assertIn("MelodyGap-portable-windows-x64.zip", script)
-        self.assertIn("SHA256SUMS.txt", script)
-
-    def test_release_workflow_uses_build_script_and_hashes(self):
-        workflow = (
-            ROOT / ".github" / "workflows" / "release.yml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("scripts/build_release.py", workflow)
-        self.assertIn("MelodyGap-portable-windows-x64.zip", workflow)
-        self.assertIn("SHA256SUMS.txt", workflow)
+    def test_release_workflow_builds_rust_portable_zip_and_hashes(self):
+        workflow = read(ROOT / ".github" / "workflows" / "release.yml")
+        for needle in (
+            "cargo build --release",
+            "pnpm build",
+            "cargo test --workspace",
+            "MelodyGap-portable-windows-x64.zip",
+            "SHA256SUMS.txt",
+            "--smoke-test",
+        ):
+            self.assertIn(needle, workflow)
         self.assertNotIn("pyinstaller --onefile", workflow.lower())
+        self.assertNotIn("setup-python", workflow.lower())
 
-    def test_version_is_semver_like(self):
-        self.assertRegex(APP_VERSION, r"^\d+\.\d+\.\d+$")
-        parts = [int(part) for part in APP_VERSION.split(".")]
-        self.assertGreaterEqual(parts[0], 1)
+    def test_ci_runs_rust_quality_checks(self):
+        workflow = read(ROOT / ".github" / "workflows" / "ci.yml")
+        for needle in (
+            "cargo fmt --all -- --check",
+            "cargo clippy --workspace --all-targets -- -D warnings",
+            "cargo test --workspace",
+            "pnpm check",
+            "pnpm build",
+        ):
+            self.assertIn(needle, workflow)
+        self.assertNotIn("setup-python", workflow.lower())
 
 
 if __name__ == "__main__":

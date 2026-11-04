@@ -11,14 +11,14 @@ body:
     id: version
     attributes:
       label: MelodyGap 版本
-      description: 例如 1.0.0，或源码 commit
+      description: 例如 2.0.0，或源码 commit
     validations:
       required: true
   - type: input
     id: system
     attributes:
       label: 系统与播放器
-      description: Windows 版本、QQ 音乐 / 网易云音乐版本、Subsonic / Navidrome 版本
+      description: Windows 版本、WebView2 Runtime 版本、QQ 音乐 / 网易云音乐版本、Subsonic / Navidrome 版本
     validations:
       required: true
   - type: textarea

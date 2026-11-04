@@ -41,3 +41,9 @@ Thumbs.db
 desktop.ini
 *.tmp
 .tmp*
+# Rust / 前端依赖
+target/
+node_modules/
+rust/src-tauri/gen/
+# Cargo.lock 需要提交，保证可复现构建（上面的 *.lock 仅用于运行时锁文件）
+!rust/Cargo.lock

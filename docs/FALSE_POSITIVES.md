@@ -1,37 +1,35 @@
 # 误报处理与文件核验
 
-MelodyGap 是一个未签名的 Python 桌面工具。Windows Defender、SmartScreen 或
-部分第三方杀毒软件可能把 **PyInstaller 打包的未签名 EXE** 误判为可疑文件。
-这不代表程序包含恶意代码，但仅靠项目侧无法保证所有安全软件都不误报。
+MelodyGap 是一个未签名的 Windows 桌面工具。Windows Defender、SmartScreen 或
+部分第三方杀毒软件可能把未签名的 EXE 误判为可疑文件。这不代表程序包含恶意
+代码，但仅靠项目侧无法保证所有安全软件都不误报。
 
-本文说明项目已经采取的零成本措施、如何自行核验下载文件，以及如何向厂商
-提交误报。**请勿为了运行程序而直接关闭杀毒软件或添加全局排除项。**
+v2.0.0 起发布物由 Rust + Tauri 2 构建，不再使用 PyInstaller 单文件自解压。
+
+本文说明项目已经采取的措施、如何自行核验下载文件，以及如何向厂商提交误报。
+**请勿为了运行程序而直接关闭杀毒软件或添加全局排除项。**
 
 ## 为什么会误报
 
 - **没有商业代码签名证书**：未知发布者的 EXE 天然缺少信誉；
-- **单文件自解压**：`--onefile` 启动时会把依赖解压到临时目录，这个行为与部分
-  恶意程序相似，是 PyInstaller 单文件版最常见的误报来源；
 - **低流行度**：安全厂商的云端信誉需要下载量和时间积累；
 - **行为敏感**：程序会枚举窗口标题、读取系统媒体会话、访问用户填写的服务器，
-  这些 API 本身也是正常软件常用功能，但可能触发启发式规则。
+  这些 API 本身也是正常软件常用功能，但可能触发启发式规则；
+- **WebView2**：Tauri 界面依赖 Microsoft Edge WebView2 Runtime，部分启发式规则
+  会关注加载浏览器组件的桌面程序。
 
-## 已经采取的零成本措施
+## 已经采取的措施
 
-从 v1.2.0 起，发布构建包含以下改动：
-
-1. **优先提供目录版（portable）**：`MelodyGap-portable-windows-x64.zip` 不会在
-   运行时自解压，误报概率低于单文件版；
-2. **写入完整 Windows 版本资源**：公司、产品名、文件说明、版本号、版权、
-   `OriginalFilename` 等字段齐全；
-3. **嵌入应用程序清单**：`asInvoker`（不请求管理员权限）、DPI 感知、
-   受支持的 Windows 版本、Common Controls v6、长路径支持；
-4. **禁用 UPX**：压缩壳会显著增加误报，构建时显式 `upx=False`；
-5. **固定构建入口**：`scripts/MelodyGap.spec` 与 `scripts/build_release.py`
-   保证本地与 CI 产物一致；
-6. **发布 SHA256 校验值**：`SHA256SUMS.txt` 与 `MelodyGap.exe.sha256`；
-7. **构建后自检**：确认版本资源与 `asInvoker` 清单确实写入 EXE；
-8. **开源可审计**：全部源码、测试和构建脚本都在仓库中。
+1. **只提供目录版便携 ZIP**：不含自解压单文件，减少与恶意打包器相似的行为；
+2. **Rust 静态编译业务代码**：不携带 Python 解释器或 PyInstaller bootloader；
+3. **Windows MSVC 构建静态链接 WebView2 Loader**：官方 EXE 不依赖同目录
+   `WebView2Loader.dll`；GNU 交叉构建才需要随包携带该 DLL；
+4. **开源可审计**：全部 Rust/Svelte 源码、测试和 GitHub Actions 构建流程都在仓库中；
+5. **固定构建入口**：CI/Release 使用同一套命令和 Windows Runner；
+6. **发布 SHA256 校验值**：`SHA256SUMS.txt` 同时覆盖 EXE 与 ZIP；
+7. **冒烟测试**：CI 构建后运行 `MelodyGap.exe --smoke-test`，验证便携数据目录
+   和可执行文件加载；
+8. **版本信息**：EXE 使用 Tauri 产品名、版本与图标资源。
 
 这些措施能减少误报，但**不能替代代码签名**，也不能保证所有厂商立即放行。
 
@@ -42,34 +40,25 @@ MelodyGap 是一个未签名的 Python 桌面工具。Windows Defender、SmartSc
 在下载目录打开 PowerShell：
 
 ```powershell
-Get-FileHash .\MelodyGap.exe -Algorithm SHA256
-Get-Content .\MelodyGap.exe.sha256
+Get-FileHash .\MelodyGap-portable-windows-x64.zip -Algorithm SHA256
+Get-Content .\SHA256SUMS.txt
 ```
 
-两者应完全一致（忽略大小写）。ZIP 包可对照 `SHA256SUMS.txt`。
+两者应完全一致（忽略大小写）。如果下载的是单独 EXE，对照
+`SHA256SUMS.txt` 中 `MelodyGap/MelodyGap.exe` 的值。
 
 ### 2. 查看版本信息
 
 ```powershell
-(Get-Item .\MelodyGap.exe).VersionInfo | Format-List *
+(Get-Item .\MelodyGap\MelodyGap.exe).VersionInfo | Format-List *
 ```
 
-应能看到：
-
-```text
-CompanyName      : MaroD1M
-FileDescription  : MelodyGap 曲库补漏
-ProductName      : MelodyGap
-ProductVersion    : 1.2.0
-OriginalFilename : MelodyGap.exe
-```
-
-如果版本信息为空或与 Release 页面版本不符，请不要运行。
+版本应与 Release 页面一致。若版本信息为空或明显不符，请不要运行。
 
 ### 3. 查看数字签名（当前版本未签名）
 
 ```powershell
-Get-AuthenticodeSignature .\MelodyGap.exe
+Get-AuthenticodeSignature .\MelodyGap\MelodyGap.exe
 ```
 
 当前发布版本为 `NotSigned`。这是预期结果；项目没有购买商业证书。若未来接入
@@ -103,7 +92,7 @@ Source code: https://github.com/MaroD1M/melody-gap
 Release: https://github.com/MaroD1M/melody-gap/releases
 SHA256: <paste SHA256SUMS.txt value>
 
-The executable is built with PyInstaller on GitHub Actions from the public
+The executable is built with Rust + Tauri 2 on GitHub Actions from the public
 source. It does not download music, inject into other processes, or modify the
 player. It only reads window titles / Windows SMTC metadata and calls the
 Subsonic API configured by the user. No telemetry.

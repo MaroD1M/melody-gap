@@ -4,12 +4,14 @@
 
 ## 测试
 
-- [ ] `python -m unittest discover -s tests -v`
-- [ ] `ruff check .`
-- [ ] `python -m compileall -q app main.py`
+- [ ] `cd rust && cargo fmt --all -- --check`
+- [ ] `cd rust && cargo clippy --workspace --all-targets -- -D warnings`
+- [ ] `cd rust && cargo test --workspace`
+- [ ] `cd rust && pnpm check`
+- [ ] `cd rust && pnpm build`
 - [ ] 涉及界面时已附截图
 
 ## 安全检查
 
 - [ ] 未包含真实服务器地址、用户名、密码、token 或日志
-- [ ] 未提交 `config.ini`、`melodygap.log`、`missing_songs.json`、`dist/` 或临时文件
+- [ ] 未提交 `config.ini`、`melodygap.log`、`missing_songs.json`、`dist/`、`target/`、`node_modules/` 或临时文件
