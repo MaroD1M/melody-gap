@@ -166,12 +166,10 @@ impl SubsonicClient {
                     break;
                 }
                 Err(error) => {
-                    if error.is_timeout() && attempt == 0 {
-                        tracing::debug!(endpoint, "请求超时，重试一次");
-                        continue;
-                    }
-                    if error.is_connect() && attempt == 0 {
-                        tracing::debug!(endpoint, "连接失败，重试一次");
+                    if (error.is_timeout() || error.is_connect() || error.is_request())
+                        && attempt == 0
+                    {
+                        tracing::debug!(endpoint, %error, "网络请求失败，重试一次");
                         continue;
                     }
                     let text = error.to_string().to_lowercase();

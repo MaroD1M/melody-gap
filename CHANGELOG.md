@@ -8,7 +8,7 @@
 ### Fixed
 
 - 修复发布版未启用 Tauri `custom-protocol` 导致窗口打开 `http://localhost:5173` 并显示“拒绝连接”的问题；Release 构建统一启用该 feature，并在 `build.rs` 中阻止误构建。
-- 修复 `subsonic_parity` 测试服务在并发环境下偶发连接失败的问题。
+- 修复 `subsonic_parity` 测试服务在并发环境下偶发连接失败的问题，并对 Subsonic 瞬时请求错误增加一次安全重试。
 - 补全 Windows 版本资源：`CompanyName`、`LegalCopyright`、`OriginalFilename`、`InternalName`、`Comments`，便于核验并降低启发式误报。
 
 ### Changed
