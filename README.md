@@ -15,7 +15,8 @@ MelodyGap 是一个面向个人音乐曲库的 Windows 小工具：优先读取 
 歌会自动进入本地待补清单，方便你之后统一补充。
 
 v2.0.0 起，桌面端由 Python/Tkinter 重写为 **Rust + Tauri 2 + Svelte 5**。新的
-便携版体积更小、启动更快，也不再依赖 PyInstaller 自解压。
+便携版体积更小、启动更快，也不再依赖 PyInstaller 自解压。v2.0.1 补全了 Windows
+版本信息并修复了发布版误连接开发服务器的问题。
 
 它不获取音源、不操作播放器界面，也不会自动修改曲库。
 
@@ -34,6 +35,8 @@ v2.0.0 起，桌面端由 Python/Tkinter 重写为 **Rust + Tauri 2 + Svelte 5**
 | 通知窗口 |
 | --- |
 | ![通知窗口](docs/previews/05-notification.png) |
+
+应用与托盘图标：<img src="docs/previews/06-icon.png" width="96" alt="MelodyGap 应用图标">
 
 ## 功能
 
@@ -216,7 +219,7 @@ pnpm install --frozen-lockfile
 pnpm check
 pnpm build
 cargo test --workspace
-cargo build --release --target x86_64-pc-windows-msvc -p melodygap
+cargo build --release --target x86_64-pc-windows-msvc -p melodygap --features custom-protocol
 ```
 
 产物：
@@ -271,9 +274,9 @@ pnpm build
 ```bash
 # 1. 更新版本号与 CHANGELOG
 # 2. 提交并推送 main
-git tag v2.0.0
+git tag v2.0.1
 git push origin main
-git push origin v2.0.0
+git push origin v2.0.1
 ```
 
 ## 开发文档

@@ -35,6 +35,10 @@
 - 每个 Release 提供 `SHA256SUMS.txt`，下载后可自行核对；
 - 当前发布版本未使用商业代码签名证书，安全软件可能误报；处理方式见
   [docs/FALSE_POSITIVES.md](docs/FALSE_POSITIVES.md)。
+- `cargo audit` 当前无已知漏洞；仅有 Linux 端传递依赖（glib/zbus 等）的
+  unmaintained/unsound 警告，Windows 发布包不包含这些依赖。
+- `pnpm audit` 当前剩 1 条低危构建期告警（`deepmerge` 原型污染，上游暂无修复版本），
+  仅经 `vite-plugin-svelte` 在开发/构建阶段使用，不进入发布 EXE；将持续跟踪上游。
 
 ## 非安全范围
 

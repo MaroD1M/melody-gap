@@ -3,6 +3,21 @@
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [2.0.1] - 2026-11-04
+
+### Fixed
+
+- 修复发布版未启用 Tauri `custom-protocol` 导致窗口打开 `http://localhost:5173` 并显示“拒绝连接”的问题；Release 构建统一启用该 feature，并在 `build.rs` 中阻止误构建。
+- 修复 `subsonic_parity` 测试服务在并发环境下偶发连接失败的问题。
+- 补全 Windows 版本资源：`CompanyName`、`LegalCopyright`、`OriginalFilename`、`InternalName`、`Comments`，便于核验并降低启发式误报。
+
+### Changed
+
+- 替换应用、托盘与通知窗口图标为新的“音符 + 缺口圆环”设计。
+- 版本号升级至 2.0.1；CI/Release 构建命令同步加入 `--features custom-protocol`。
+- 前端图标库从已弃用的 `lucide-svelte` 迁移到 `@lucide/svelte`。
+- 关闭不兼容的 Dependabot 大版本升级，并在配置中忽略 reqwest/md-5/rand/httpmock/windows-future 与 TypeScript 的大版本更新。
+
 ## [2.0.0] - 2026-11-04
 
 ### Added

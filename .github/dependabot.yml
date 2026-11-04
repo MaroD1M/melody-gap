@@ -8,6 +8,17 @@ updates:
     groups:
       cargo:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "reqwest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "md-5"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "rand"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "httpmock"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "windows-future"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/rust"
     schedule:
@@ -16,6 +27,9 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

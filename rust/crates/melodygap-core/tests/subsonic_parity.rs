@@ -48,7 +48,12 @@ impl TestServer {
             while !thread_stop.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((stream, _)) => {
-                        handle_connection(stream, &thread_requests, &thread_responses, &thread_mode)
+                        let requests = Arc::clone(&thread_requests);
+                        let responses = Arc::clone(&thread_responses);
+                        let mode = Arc::clone(&thread_mode);
+                        let _ = thread::Builder::new()
+                            .name("SubsonicTestConnection".into())
+                            .spawn(move || handle_connection(stream, &requests, &responses, &mode));
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                         thread::sleep(Duration::from_millis(5));
@@ -100,7 +105,10 @@ fn handle_connection(
     responses: &Arc<Mutex<HashMap<String, Vec<Value>>>>,
     mode: &Arc<Mutex<Mode>>,
 ) {
-    let mut reader = BufReader::new(stream.try_clone().unwrap());
+    let Ok(reader_stream) = stream.try_clone() else {
+        return;
+    };
+    let mut reader = BufReader::new(reader_stream);
     let mut writer = stream;
     let mut request_line = String::new();
     if reader.read_line(&mut request_line).is_err() {
@@ -179,6 +187,7 @@ fn handle_connection(
     let _ = writer.write_all(header.as_bytes());
     let _ = writer.write_all(&body);
     let _ = writer.flush();
+    let _ = writer.shutdown(std::net::Shutdown::Both);
 }
 
 fn song_a() -> Value {

@@ -4,7 +4,19 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+authors.workspace = true
+description = "MelodyGap 曲库补漏 - Subsonic/Navidrome 缺失歌曲检测"
+repository = "https://github.com/MaroD1M/melody-gap"
 build = "build.rs"
+
+[features]
+# 生产构建必须启用：否则 Tauri 会尝试连接 devUrl(localhost:5173)。
+custom-protocol = ["tauri/custom-protocol"]
+
+[package.metadata.tauri-winres]
+OriginalFilename = "MelodyGap.exe"
+InternalName = "MelodyGap"
+Comments = "Subsonic / Navidrome 曲库缺失歌曲检测工具"
 
 [lib]
 name = "melodygap_lib"

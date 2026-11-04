@@ -38,15 +38,14 @@ class RustVersionTests(unittest.TestCase):
             r'APP_VERSION: &str = "([^"]+)"', constants
         ).group(1)
 
-        self.assertEqual(
-            {
-                cargo_version,
-                tauri["version"],
-                package["version"],
-                app_version,
-            },
-            {"2.0.0"},
-        )
+        versions = {
+            cargo_version,
+            tauri["version"],
+            package["version"],
+            app_version,
+        }
+        self.assertEqual(len(versions), 1, versions)
+        self.assertRegex(versions.pop(), r"^\d+\.\d+\.\d+$")
 
 
 class RustPackagingFilesTests(unittest.TestCase):
@@ -58,6 +57,8 @@ class RustPackagingFilesTests(unittest.TestCase):
 
     def test_release_workflow_builds_rust_portable_zip_and_hashes(self):
         workflow = read(ROOT / ".github" / "workflows" / "release.yml")
+        self.assertIn("--features custom-protocol", workflow)
+        self.assertIn("custom-protocol", read(RUST / "src-tauri" / "Cargo.toml"))
         for needle in (
             "cargo build --release",
             "pnpm build",
@@ -65,6 +66,9 @@ class RustPackagingFilesTests(unittest.TestCase):
             "MelodyGap-portable-windows-x64.zip",
             "SHA256SUMS.txt",
             "--smoke-test",
+            "/assets/index-",
+            "CompanyName",
+            "OriginalFilename",
         ):
             self.assertIn(needle, workflow)
         self.assertNotIn("pyinstaller --onefile", workflow.lower())
@@ -78,6 +82,7 @@ class RustPackagingFilesTests(unittest.TestCase):
             "cargo test --workspace",
             "pnpm check",
             "pnpm build",
+            "/assets/index-",
         ):
             self.assertIn(needle, workflow)
         self.assertNotIn("setup-python", workflow.lower())

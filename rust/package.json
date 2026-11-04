@@ -1,7 +1,7 @@
 {
   "name": "melody-gap",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,11 +13,11 @@
     "desktop:build": "tauri build"
   },
   "dependencies": {
+    "@lucide/svelte": "^1.67.0",
     "@tauri-apps/api": "^2.9.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.0",
     "@tauri-apps/plugin-dialog": "^2.4.0",
-    "@tauri-apps/plugin-opener": "^2.5.0",
-    "lucide-svelte": "^1.0.1"
+    "@tauri-apps/plugin-opener": "^2.5.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

@@ -31,7 +31,7 @@
     ChevronDown,
     Loader2,
     Sparkles,
-  } from "lucide-svelte";
+  } from "@lucide/svelte";
 
   import SettingsDialog from "./SettingsDialog.svelte";
   import {

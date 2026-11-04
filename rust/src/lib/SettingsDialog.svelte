@@ -1,6 +1,6 @@
 ﻿<script lang="ts">
   import { untrack } from "svelte";
-  import { X, Server, Bell, ShieldCheck, Loader2, Settings as SettingsIcon } from "lucide-svelte";
+  import { X, Server, Bell, ShieldCheck, Loader2, Settings as SettingsIcon } from "@lucide/svelte";
   import { saveSettings, testConnection } from "./api";
   import type { ActionResponse, Snapshot } from "./types";
 

@@ -1,6 +1,6 @@
 # MelodyGap 开发与维护手册
 
-> 版本：2.0.0
+> 版本：2.0.1
 > 状态基线：2026-11-04
 > 适用范围：`melody-gap/rust/`
 > 目标读者：后续维护者、二次开发者、代码审查者、发布负责人
@@ -359,7 +359,7 @@ pnpm install --frozen-lockfile
 pnpm check
 pnpm build
 cargo test --workspace
-cargo build --release --target x86_64-pc-windows-msvc -p melodygap
+cargo build --release --target x86_64-pc-windows-msvc -p melodygap --features custom-protocol
 ```
 
 MSVC 构建静态链接 WebView2 Loader；GNU target 需要把
@@ -376,10 +376,24 @@ Release 工作流会自动压缩并生成 `SHA256SUMS.txt`。
 2. `pnpm install --frozen-lockfile`；
 3. `pnpm check` / `pnpm build`；
 4. `cargo fmt --check` / `cargo clippy -D warnings` / `cargo test`；
-5. `cargo build --release`；
+5. `cargo build --release --features custom-protocol`；
 6. 打包目录版、生成 SHA256、执行 `--smoke-test`、上传 artifact。
 
 `.github/workflows/release.yml` 在 `v*` 标签时重复检查并创建 GitHub Release。
+
+### 11.3 依赖审计
+
+```bash
+cd rust
+cargo audit
+pnpm audit
+```
+
+- 2026-11-04 基线：`cargo audit` 无已知漏洞，仅有 Linux 端传递依赖的
+  unmaintained/unsound 警告；Windows MSVC 发布包不包含 glib/zbus。
+- `pnpm audit` 剩 1 条低危 `deepmerge` 构建期告警，上游无修复版本，不进入 EXE。
+- Dependabot 已忽略 reqwest / md-5 / rand / httpmock / windows-future 与 TypeScript
+  的大版本更新，避免破坏性升级直接生成失败 PR；升级前需单独适配并跑全量测试。
 
 ## 12. 手动验收清单（Windows）
 

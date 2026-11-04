@@ -1,6 +1,6 @@
 # MelodyGap 项目现状、路线图与交接说明
 
-> 当前版本：2.0.0
+> 当前版本：2.0.1
 > 状态基线：2026-11-04
 > 适用仓库：`MaroD1M/melody-gap`
 > 目标读者：项目维护者、二次开发者、接手者、发布负责人
@@ -11,7 +11,7 @@
 
 ## 1. 结论摘要
 
-- v2.0.0 将桌面端从 Python/Tkinter 重写为 Rust + Tauri 2 + Svelte 5。
+- v2.0.0 将桌面端从 Python/Tkinter 重写为 Rust + Tauri 2 + Svelte 5；v2.0.1 修复发布版误连接开发服务器并补全版本资源。
 - 核心功能保持完整：SMTC/窗口标题检测、双播放器并行、三态曲库查询、待补清单、
   播放记录、提醒、托盘、导出与人工核验。
 - Rust 测试共 122 项，全部离线；`cargo clippy -D warnings`、`pnpm check`、
@@ -26,28 +26,30 @@
 
 | 项目 | 当前值 |
 |------|--------|
-| 版本 | `2.0.0` |
+| 版本 | `2.0.1` |
 | 分支 | `main` |
 | 主要实现 | `rust/`（Tauri 2 + Svelte 5） |
-| 标签 | `v2.0.0` |
-| Release | <https://github.com/MaroD1M/melody-gap/releases/tag/v2.0.0> |
-| 发布时间 | 2026-11-04 14:59 UTC |
-| CI | `41851058526`，成功 |
-| Release 构建 | `41851064868`，成功 |
+| 上一版 | `v2.0.0`（Rust 首次发布；存在 localhost:5173 启动问题） |
+| 标签 | `v2.0.1`（本次修复发布） |
+| Release | 推送 `v2.0.1` 后由 `.github/workflows/release.yml` 自动构建 |
 | 推荐产物 | `MelodyGap-portable-windows-x64.zip` |
 | 测试 | 122 项 Rust 测试 |
 
-发布资产：
+发布资产在 Release 成功后由工作流生成：
 
-| 文件 | 大小 | SHA256 |
-|------|------|--------|
-| `MelodyGap-portable-windows-x64.zip` | 3,484,061 B | `2176f3ba203665170277172541371cd2a7ef560b5272861e22c71f79f9841223` |
-| `MelodyGap.exe` | 8,118,272 B | `34aab3b7aabc2cecce0991ede54aaa8b3591b77a69e7b3feadb03d90164f41fd` |
-| `SHA256SUMS.txt` | 191 B | 见 Release 页面 |
+| 文件 | 说明 |
+|------|------|
+| `MelodyGap-portable-windows-x64.zip` | 便携目录版，推荐 |
+| `MelodyGap.exe` | Windows 可执行文件；MSVC 构建静态链接 WebView2 Loader |
+| `SHA256SUMS.txt` | EXE 与 ZIP 的 SHA256 |
 
 官方 Windows Runner 使用 MSVC 构建，EXE 静态链接 WebView2 Loader，因此 ZIP 内只有
 EXE、配置示例与 LICENSE；本地 Linux 交叉编译（GNU）产物需要额外携带
 `WebView2Loader.dll`，哈希不会与官方 Release 一致。
+
+v2.0.1 修复内容：发布构建启用 Tauri `custom-protocol`，避免 EXE 打开
+`http://localhost:5173`；补全 Windows 公司名/版权/原始文件名等版本资源；替换
+应用与托盘图标；修复 Subsonic 测试的并发偶发失败。
 
 ## 3. 产品定位与边界
 
@@ -132,6 +134,7 @@ Tauri 事件循环
 | 1.1.0 | 2026-10-21 | SMTC 主检测、窗口回退、双播放器并行、通知队列 |
 | 1.2.0 | 2026-10-30 | 目录版、版本资源、asInvoker 清单、禁用 UPX、误报文档 |
 | 2.0.0 | 2026-11-04 | Rust + Tauri 2 + Svelte 5 重写、便携 WebView2 数据、多选、CI/Release 切换 |
+| 2.0.1 | 2026-11-04 | 修复 custom-protocol、补全 Windows 版本资源、新图标、依赖与测试稳定性 |
 
 ### 5.2 当前功能清单
 
@@ -175,7 +178,7 @@ Tauri 事件循环
 
 ### P0：发布闭环
 
-1. 完成 v2.0.0 Windows CI 与 Release 构建；
+1. 完成 v2.0.1 Windows CI 与 Release 构建；
 2. 在一台 Windows 10/11 上执行实机验收清单；
 3. 核对 EXE 版本资源、SHA256、托盘/通知/播放器检测；
 4. 记录已知兼容性问题后再扩大宣传。

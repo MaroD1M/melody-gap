@@ -2,7 +2,7 @@
 
 pub const APP_NAME: &str = "MelodyGap";
 pub const APP_DISPLAY_NAME: &str = "MelodyGap 曲库补漏";
-pub const APP_VERSION: &str = "2.0.0";
+pub const APP_VERSION: &str = "2.0.1";
 pub const CONFIG_FILE_NAME: &str = "config.ini";
 pub const LOG_FILE_NAME: &str = "melodygap.log";
 pub const MISSING_FILE_NAME: &str = "missing_songs.json";
