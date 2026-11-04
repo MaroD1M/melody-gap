@@ -29,21 +29,25 @@
 | 版本 | `2.0.0` |
 | 分支 | `main` |
 | 主要实现 | `rust/`（Tauri 2 + Svelte 5） |
+| 标签 | `v2.0.0` |
+| Release | <https://github.com/MaroD1M/melody-gap/releases/tag/v2.0.0> |
+| 发布时间 | 2026-11-04 14:59 UTC |
+| CI | `41851058526`，成功 |
+| Release 构建 | `41851064868`，成功 |
 | 推荐产物 | `MelodyGap-portable-windows-x64.zip` |
 | 测试 | 122 项 Rust 测试 |
-| CI | `.github/workflows/ci.yml`（Windows） |
-| Release | 推送 `v2.0.0` 标签后由 `.github/workflows/release.yml` 构建 |
 
 发布资产：
 
-| 文件 | 说明 |
-|------|------|
-| `MelodyGap-portable-windows-x64.zip` | 便携目录版，推荐 |
-| `MelodyGap.exe` | Windows 可执行文件；MSVC 构建静态链接 WebView2 Loader |
-| `SHA256SUMS.txt` | EXE 与 ZIP 的 SHA256 |
+| 文件 | 大小 | SHA256 |
+|------|------|--------|
+| `MelodyGap-portable-windows-x64.zip` | 3,484,061 B | `2176f3ba203665170277172541371cd2a7ef560b5272861e22c71f79f9841223` |
+| `MelodyGap.exe` | 8,118,272 B | `34aab3b7aabc2cecce0991ede54aaa8b3591b77a69e7b3feadb03d90164f41fd` |
+| `SHA256SUMS.txt` | 191 B | 见 Release 页面 |
 
-官方产物以 GitHub Actions Windows Runner（MSVC）构建结果为准；本地 Linux
-交叉编译（GNU）产物仅用于开发验证，哈希不会与官方 Release 一致。
+官方 Windows Runner 使用 MSVC 构建，EXE 静态链接 WebView2 Loader，因此 ZIP 内只有
+EXE、配置示例与 LICENSE；本地 Linux 交叉编译（GNU）产物需要额外携带
+`WebView2Loader.dll`，哈希不会与官方 Release 一致。
 
 ## 3. 产品定位与边界
 
