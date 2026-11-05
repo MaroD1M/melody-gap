@@ -1,11 +1,11 @@
 import type { PlayRecord } from "./types";
 
-export const PLAYER_NAMES: Record<string, string> = {
+const PLAYER_NAMES: Record<string, string> = {
   qq: "QQ音乐",
   netease: "网易云音乐",
 };
 
-export const PLAYER_SHORT_NAMES: Record<string, string> = {
+const PLAYER_SHORT_NAMES: Record<string, string> = {
   qq: "QQ音乐",
   netease: "网易云",
 };
@@ -55,8 +55,4 @@ export function searchUrl(player: string, query: string): string {
     return `https://y.qq.com/n/ryqq/search?w=${encoded}`;
   }
   return `https://music.163.com/#/search/m/?s=${encoded}&type=1`;
-}
-
-export function emptyToDash(value: string): string {
-  return value.trim() ? value : "—";
 }

@@ -1,4 +1,4 @@
-//! `config.ini` 读写，兼容 Python 版格式。
+//! `config.ini` 读写，兼容 v1.x 配置格式。
 
 use std::collections::BTreeMap;
 use std::fs;

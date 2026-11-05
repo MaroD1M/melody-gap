@@ -3,6 +3,18 @@
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Changed
+
+- 将原 Python 发布配置回归测试迁移为 Rust 集成测试，纳入 `cargo test --workspace`。
+- 移除前端未使用的单曲状态/删除命令，批量命令已覆盖现有交互。
+
+### Removed
+
+- 移除 v1.x Python/Tkinter 实现、PyInstaller 打包脚本、Python 专用依赖与测试；历史实现可通过 `v1.2.0` 标签查阅。
+- 清理根目录旧图标、Python 缓存忽略规则与已不再使用的 `*.spec` 忽略例外。
+
 ## [2.0.2] - 2026-11-05
 
 ### Fixed

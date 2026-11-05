@@ -1,4 +1,4 @@
-//! 领域数据模型，与 Python 版字段语义保持一致。
+//! 领域数据模型，字段语义保持与 v1.x 兼容。
 
 use chrono::Local;
 use serde::{Deserialize, Deserializer, Serialize};

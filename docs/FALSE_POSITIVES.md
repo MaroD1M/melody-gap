@@ -21,7 +21,7 @@ v2.0.0 起发布物由 Rust + Tauri 2 构建，不再使用 PyInstaller 单文�
 ## 已经采取的措施
 
 1. **只提供目录版便携 ZIP**：不含自解压单文件，减少与恶意打包器相似的行为；
-2. **Rust 静态编译业务代码**：不携带 Python 解释器或 PyInstaller bootloader；
+2. **Rust 静态编译业务代码**：发布物不携带 Python 解释器、PyInstaller bootloader 或脚本运行时；
 3. **Windows MSVC 构建静态链接 WebView2 Loader**：官方 EXE 不依赖同目录
    `WebView2Loader.dll`；GNU 交叉构建才需要随包携带该 DLL；
 4. **开源可审计**：全部 Rust/Svelte 源码、测试和 GitHub Actions 构建流程都在仓库中；

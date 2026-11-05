@@ -202,12 +202,12 @@ melody-gap/
 │   ├── dist/                    # 前端构建产物（构建时生成）
 │   └── release/                 # 本地 Windows 便携包（构建时生成）
 ├── docs/                        # 开发文档、误报说明、界面预览
-├── app/                         # 旧 Python 实现，保留作行为参考
+├── config.ini.example           # 便携配置示例
 └── .github/workflows/           # Rust CI 与 Release 构建
 ```
 
-`app/` 与 `main.py` 是 v1.x 的 Python 实现，保留用于对照历史行为；Release 和 CI
-只构建 `rust/`。
+v1.x 的 Python/Tkinter 实现已从 `main` 移除；如需查阅历史实现，请使用
+[`v1.2.0`](https://github.com/MaroD1M/melody-gap/tree/v1.2.0) 标签。
 
 ## 从源码构建
 
@@ -257,7 +257,7 @@ GitHub Actions 的 Release 工作流会自动完成编译、打包、SHA256 与�
 cd rust
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace       # 128 项
+cargo test --workspace       # 133 项
 pnpm check
 pnpm build
 ```

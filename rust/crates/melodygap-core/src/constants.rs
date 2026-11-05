@@ -1,4 +1,4 @@
-//! 全局常量。与 Python 版 `app/constants.py` 保持同值，确保行为一致。
+//! 全局常量。保持与 v1.x 历史实现同值，避免行为回归。
 
 pub const APP_NAME: &str = "MelodyGap";
 pub const APP_DISPLAY_NAME: &str = "MelodyGap 曲库补漏";

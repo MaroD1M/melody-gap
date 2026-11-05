@@ -11,7 +11,7 @@ body:
     id: version
     attributes:
       label: MelodyGap 版本
-      description: 例如 2.0.0，或源码 commit
+      description: 例如 2.0.2，或源码 commit
     validations:
       required: true
   - type: input

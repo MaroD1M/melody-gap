@@ -384,32 +384,6 @@ pub async fn recheck_missing(
 }
 
 #[tauri::command]
-pub fn set_missing_status(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    key: String,
-    status: String,
-) -> Result<ActionResponse, String> {
-    if !is_valid_missing_status(&status) {
-        return Err(format!("未知的待补状态: {status}"));
-    }
-    let updated = state
-        .missing
-        .set_status(&key, &status)
-        .map_err(|error| error.to_string())?;
-    let message = if updated {
-        "状态已更新".to_string()
-    } else {
-        "歌曲已不在待补清单".to_string()
-    };
-    events::broadcast(&app, &state);
-    Ok(ActionResponse {
-        message,
-        snapshot: snapshot(&state),
-    })
-}
-
-#[tauri::command]
 pub fn set_missing_status_many(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -449,28 +423,6 @@ pub fn delete_missing_many(
         "歌曲已不在待补清单".to_string()
     } else {
         format!("已从待补清单删除 {removed} 首歌曲")
-    };
-    events::broadcast(&app, &state);
-    Ok(ActionResponse {
-        message,
-        snapshot: snapshot(&state),
-    })
-}
-
-#[tauri::command]
-pub fn delete_missing(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    key: String,
-) -> Result<ActionResponse, String> {
-    let removed = state
-        .missing
-        .remove_key(&key)
-        .map_err(|error| error.to_string())?;
-    let message = if removed {
-        "已从待补清单删除".to_string()
-    } else {
-        "歌曲已不在待补清单".to_string()
     };
     events::broadcast(&app, &state);
     Ok(ActionResponse {

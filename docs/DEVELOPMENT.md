@@ -5,9 +5,9 @@
 > 适用范围：`melody-gap/rust/`
 > 目标读者：后续维护者、二次开发者、代码审查者、发布负责人
 
-v2.0.0 起，桌面端由 Python/Tkinter 迁移到 Rust + Tauri 2 + Svelte 5。根目录的
-`app/`、`main.py` 与 `tests/` 是 v1.x 行为参考，不再参与 Release 构建；本文只
-描述当前 Rust 桌面端。
+v2.0.0 起，桌面端由 Python/Tkinter 迁移到 Rust + Tauri 2 + Svelte 5。v1.x 的
+Python 实现、PyInstaller 打包脚本与旧测试已从 `main` 移除，历史实现可通过
+`v1.2.0` 标签查阅；本文只描述当前 Rust 桌面端。
 
 ## 1. 目录结构
 
@@ -28,7 +28,7 @@ rust/
 │   └── tests/                     # 核心、监控、Subsonic 行为测试
 ├── src-tauri/
 │   ├── src/lib.rs                 # Tauri 构建、窗口恢复、退出
-│   ├── src/commands.rs            # 17 个 invoke 命令与记录回调
+│   ├── src/commands.rs            # 15 个 invoke 命令与记录回调
 │   ├── src/state.rs               # AppState / Snapshot 序列化
 │   ├── src/events.rs              # state-changed 广播
 │   ├── src/notifications.rs       # 通知窗、队列、6 秒计时
@@ -241,8 +241,8 @@ start_monitoring / stop_monitoring
 save_last_tab
 save_settings / test_connection
 recheck_current / recheck_missing
-set_missing_status / set_missing_status_many
-delete_missing / delete_missing_many
+set_missing_status_many
+delete_missing_many
 clear_history
 get_current_notification / dismiss_notification
 export_missing / export_history
@@ -352,7 +352,7 @@ pnpm check
 pnpm build
 ```
 
-当前 128 项 Rust 测试：
+当前 133 项 Rust 测试：
 
 | 文件 | 数量 | 覆盖 |
 |------|------|------|
@@ -360,6 +360,7 @@ pnpm build
 | `crates/melodygap-core/tests/monitor_parity.rs` | 31 | 去重、切歌、三态、缓存、双播放器、未知重试、核验、启停 |
 | `crates/melodygap-core/tests/subsonic_parity.rs` | 12 | token、search3/search2、去重、错误映射 |
 | `src-tauri` 单元测试 | 9 | 窗口几何、URL 校验、CSV BOM/CRLF |
+| `src-tauri/tests/packaging.rs` | 5 | 版本一致性、Tauri/CI/Release 发布约束、主窗口启动顺序 |
 
 测试全部离线，不依赖真实播放器、真实 Subsonic 服务器或网络。
 

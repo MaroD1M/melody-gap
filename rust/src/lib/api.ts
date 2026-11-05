@@ -21,10 +21,6 @@ export const recheckCurrent = (player?: string) =>
   invoke<ActionResponse>("recheck_current", { player: player ?? null });
 export const recheckMissing = (keys?: string[], quiet = false) =>
   invoke<ActionResponse>("recheck_missing", { keys: keys ?? null, quiet });
-export const setMissingStatus = (key: string, status: string) =>
-  invoke<ActionResponse>("set_missing_status", { key, status });
-export const deleteMissing = (key: string) =>
-  invoke<ActionResponse>("delete_missing", { key });
 export const setMissingStatusMany = (keys: string[], status: string) =>
   invoke<ActionResponse>("set_missing_status_many", { keys, status });
 export const deleteMissingMany = (keys: string[]) =>
