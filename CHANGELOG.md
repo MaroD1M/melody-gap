@@ -3,7 +3,7 @@
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [2.0.2] - 2026-11-05
 
 ### Fixed
 
@@ -18,6 +18,7 @@
 - 主窗口改为自适应宽高布局：默认 1120×800 下表格内部滚动、底栏保持可见；更宽窗口最高使用 1440px。
 - 窗口标题版本号改为构建时自动读取，避免发版后标题版本号过期。
 - 主窗口默认隐藏，完成尺寸/位置恢复后再显示；首次运行按工作区居中。
+- 版本号升级至 2.0.2。
 - 更新 `README.md`、`config.ini.example`、`docs/DEVELOPMENT.md` 的窗口几何说明与测试数量。
 
 ## [2.0.1] - 2026-11-04

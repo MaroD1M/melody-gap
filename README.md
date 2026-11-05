@@ -14,9 +14,9 @@ MelodyGap 是一个面向个人音乐曲库的 Windows 小工具：优先读取 
 再通过 Subsonic API 查询你的 **Subsonic / Navidrome / Airsonic** 曲库。不在库里的
 歌会自动进入本地待补清单，方便你之后统一补充。
 
-当前版本为 **v2.0.1**。桌面端自 v2.0.0 起由 Python/Tkinter 重写为
+当前版本为 **v2.0.2**。桌面端自 v2.0.0 起由 Python/Tkinter 重写为
 **Rust + Tauri 2 + Svelte 5**，便携版体积更小、启动更快，也不再依赖 PyInstaller
-自解压。v2.0.1 已通过 Windows 实机启动验证，并修复了发布版误连接开发服务器的问题。
+自解压。v2.0.2 修复启动竞态、DPI 窗口恢复与自适应布局问题；v2.0.1 已完成 Windows 实机启动验证，并修复了发布版误连接开发服务器的问题。
 
 它不获取音源、不操作播放器界面，也不会自动修改曲库。
 
