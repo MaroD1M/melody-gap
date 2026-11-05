@@ -350,20 +350,22 @@ pub async fn recheck_missing(
                 None => unknown += 1,
             }
             if show_notification {
-                state.notifications.push(NotificationItem {
-                    id: 0,
-                    title: entry.title.clone(),
-                    artist: entry.artist.clone(),
-                    status: result,
-                    player: entry.player.clone(),
-                    player_name: player_display_name(&entry.player).to_string(),
-                    is_new_missing: false,
-                    copy_text: if result == Some(false) {
-                        format!("{} - {}", entry.title, entry.artist)
-                    } else {
-                        String::new()
-                    },
-                });
+                if let Some(notifications) = state.notifications() {
+                    notifications.push(NotificationItem {
+                        id: 0,
+                        title: entry.title.clone(),
+                        artist: entry.artist.clone(),
+                        status: result,
+                        player: entry.player.clone(),
+                        player_name: player_display_name(&entry.player).to_string(),
+                        is_new_missing: false,
+                        copy_text: if result == Some(false) {
+                            format!("{} - {}", entry.title, entry.artist)
+                        } else {
+                            String::new()
+                        },
+                    });
+                }
             }
         }
         state.rechecking.store(false, Ordering::SeqCst);
@@ -486,14 +488,16 @@ pub fn clear_history(app: AppHandle, state: State<'_, AppState>) -> Snapshot {
 
 #[tauri::command]
 pub fn get_current_notification(state: State<'_, AppState>) -> Option<NotificationItem> {
-    state.notifications.current()
+    state.notifications().and_then(|manager| manager.current())
 }
 
 #[tauri::command]
 pub fn dismiss_notification(state: State<'_, AppState>, id: Option<u64>) {
-    match id {
-        Some(id) => state.notifications.dismiss_if(id),
-        None => state.notifications.dismiss(),
+    if let Some(notifications) = state.notifications() {
+        match id {
+            Some(id) => notifications.dismiss_if(id),
+            None => notifications.dismiss(),
+        }
     }
 }
 
@@ -664,16 +668,18 @@ pub fn install_record_callback(app: &AppHandle, state: &AppState) {
                     .lock()
                     .expect("notification history")
                     .insert(key, now);
-                state.notifications.push(NotificationItem {
-                    id: 0,
-                    title: record.title.clone(),
-                    artist: record.artist.clone(),
-                    status: record.in_library,
-                    player: record.player.clone(),
-                    player_name: player_display_name(&record.player).to_string(),
-                    is_new_missing: created,
-                    copy_text: format!("{} - {}", record.title, record.artist),
-                });
+                if let Some(notifications) = state.notifications() {
+                    notifications.push(NotificationItem {
+                        id: 0,
+                        title: record.title.clone(),
+                        artist: record.artist.clone(),
+                        status: record.in_library,
+                        player: record.player.clone(),
+                        player_name: player_display_name(&record.player).to_string(),
+                        is_new_missing: created,
+                        copy_text: format!("{} - {}", record.title, record.artist),
+                    });
+                }
             }
 
             events::broadcast(&app_handle, &state);

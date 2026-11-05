@@ -19,6 +19,6 @@ verify_ssl = 1
 reminder_mode = new_missing
 reminder_cooldown_minutes = 10
 # 由程序自动保存，通常不需要手动修改
-window_geometry = 1080x760
+window_geometry =
 window_zoomed = 0
 last_tab = 0

@@ -84,7 +84,8 @@
   let selectedHistoryKey = $state<string | null>(null);
   let settingsOpen = $state(false);
   let busy = $state(false);
-  let statusMessage = $state("提示：双击复制，右键查看更多操作");
+  const defaultStatus = "提示：双击复制，右键查看更多操作";
+  let statusMessage = $state(defaultStatus);
   let contextMenu = $state<ContextMenu | null>(null);
   let missingSort = $state<{ column: SortColumn; reverse: boolean }>({
     column: "first_seen",
@@ -198,6 +199,9 @@
 
   function applySnapshot(next: Snapshot) {
     snapshot = next;
+    if (statusMessage.startsWith("读取状态失败：")) {
+      statusMessage = defaultStatus;
+    }
     if (selectedMissingKeys.length > 0) {
       const existing = new Set(next.missing.map((entry) => entry.key));
       const kept = selectedMissingKeys.filter((key) => existing.has(key));
@@ -962,28 +966,31 @@
     {/if}
 
     <div class="footer">
-      <span class="inline-flex items-center gap-1.5 {serverState.className}">
-        {#if !snapshot?.subsonic.configured}
-          <WifiOff size={13} />
-        {:else if snapshot?.last_query_error}
-          <AlertCircle size={13} />
-        {:else if snapshot?.query_ok}
-          <Wifi size={13} />
-        {:else}
-          <Server size={13} />
-        {/if}
-        {serverState.text}
-      </span>
-      <span>最后查询：{lastQueryTime}</span>
-      <span class="font-semibold text-indigo-600">{statusMessage}</span>
-      <span class="spacer"></span>
-      <span class="text-slate-400">v{snapshot?.app_version ?? "2.0.0"}</span>
-      <button class="btn btn-sm btn-ghost" onclick={() => (settingsOpen = true)} disabled={!snapshot}>
-        <Settings size={13} /> 设置
-      </button>
-      <button class="btn btn-sm btn-ghost" onclick={() => void getCurrentWindow().hide()}>
-        <Minus size={13} /> 最小化
-      </button>
+      <div class="footer-meta">
+        <span class="inline-flex items-center gap-1.5 {serverState.className}">
+          {#if !snapshot?.subsonic.configured}
+            <WifiOff size={13} />
+          {:else if snapshot?.last_query_error}
+            <AlertCircle size={13} />
+          {:else if snapshot?.query_ok}
+            <Wifi size={13} />
+          {:else}
+            <Server size={13} />
+          {/if}
+          {serverState.text}
+        </span>
+        <span class="footer-query">最后查询：{lastQueryTime}</span>
+        <span class="footer-status font-semibold text-indigo-600" title={statusMessage}>{statusMessage}</span>
+      </div>
+      <div class="footer-actions">
+        <span class="footer-version text-slate-400">v{snapshot?.app_version ?? "—"}</span>
+        <button class="btn btn-sm btn-ghost" onclick={() => (settingsOpen = true)} disabled={!snapshot}>
+          <Settings size={13} /> 设置
+        </button>
+        <button class="btn btn-sm btn-ghost" onclick={() => void getCurrentWindow().hide()}>
+          <Minus size={13} /> 最小化
+        </button>
+      </div>
     </div>
   </section>
 </div>

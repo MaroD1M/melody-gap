@@ -55,6 +55,25 @@ class RustPackagingFilesTests(unittest.TestCase):
         self.assertEqual(override.get("localData"), "./webview2-data")
         self.assertFalse(config["bundle"]["active"])
 
+    def test_main_window_waits_for_managed_state(self):
+        config = json.loads(read(RUST / "src-tauri" / "tauri.conf.json"))
+        main = next(w for w in config["app"]["windows"] if w["label"] == "main")
+        self.assertFalse(main["create"])
+        self.assertFalse(main["visible"])
+        self.assertEqual(main["minWidth"], 840)
+        self.assertEqual(main["minHeight"], 540)
+
+        source = read(RUST / "src-tauri" / "src" / "lib.rs")
+        setup = source.split(".setup(|app| {", 1)[1].split("commands::install_record_callback", 1)[0]
+        self.assertLess(
+            setup.index("app.manage(state.clone())"),
+            setup.index("create_main_window(app)?"),
+        )
+        self.assertLess(
+            setup.index("state.notifications.set(notifications)"),
+            setup.index("create_main_window(app)?"),
+        )
+
     def test_release_workflow_builds_rust_portable_zip_and_hashes(self):
         workflow = read(ROOT / ".github" / "workflows" / "release.yml")
         self.assertIn("--features custom-protocol", workflow)

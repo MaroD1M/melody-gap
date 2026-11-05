@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use chrono::{DateTime, Local};
 use serde::Serialize;
@@ -20,7 +20,7 @@ pub struct AppState {
     pub monitor: Arc<MusicMonitor>,
     pub missing: Arc<MissingRepository>,
     pub detector: Arc<HybridDetector>,
-    pub notifications: Arc<NotificationManager>,
+    pub notifications: Arc<OnceLock<Arc<NotificationManager>>>,
     pub last_notified: Arc<Mutex<HashMap<String, DateTime<Local>>>>,
     pub rechecking: Arc<AtomicBool>,
     pub quitting: Arc<AtomicBool>,
@@ -61,6 +61,12 @@ pub struct Snapshot {
     pub missing_count: usize,
     pub smtc_available: bool,
     pub smtc_error: Option<String>,
+}
+
+impl AppState {
+    pub fn notifications(&self) -> Option<&Arc<NotificationManager>> {
+        self.notifications.get()
+    }
 }
 
 pub fn snapshot(state: &AppState) -> Snapshot {

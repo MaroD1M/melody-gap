@@ -13,15 +13,16 @@
     "windows": [
       {
         "label": "main",
-        "title": "MelodyGap 曲库补漏 v2.0.1",
+        "title": "MelodyGap 曲库补漏",
         "width": 1120,
         "height": 800,
-        "minWidth": 960,
-        "minHeight": 640,
+        "minWidth": 840,
+        "minHeight": 540,
         "center": true,
-        "visible": true,
+        "visible": false,
         "resizable": true,
-        "decorations": true
+        "decorations": true,
+        "create": false
       }
     ],
     "security": {

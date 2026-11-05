@@ -35,11 +35,12 @@
 html,
 body,
 #app {
-  min-height: 100%;
+  height: 100%;
 }
 
 body {
   margin: 0;
+  overflow: hidden;
   background:
     radial-gradient(1100px 520px at 8% -10%, rgba(79, 70, 229, 0.14), transparent 60%),
     radial-gradient(900px 460px at 100% 0%, rgba(6, 182, 212, 0.12), transparent 55%),
@@ -74,13 +75,18 @@ textarea {
 }
 
 .app-shell {
-  width: min(1280px, 100%);
+  display: flex;
+  flex-direction: column;
+  width: min(1440px, 100%);
+  height: 100vh;
   margin: 0 auto;
-  padding: 18px 20px 22px;
+  padding: 18px clamp(12px, 1.8vw, 24px) 22px;
+  overflow-y: auto;
 }
 
 .topbar {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
@@ -175,8 +181,9 @@ textarea {
 }
 
 .hero {
+  flex: none;
   margin-top: 14px;
-  padding: 18px 20px;
+  padding: 14px 20px;
   border-radius: 22px;
   color: #f8fafc;
   background:
@@ -198,7 +205,7 @@ textarea {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
-  padding: 11px 0;
+  padding: 9px 0;
   border-top: 1px solid rgba(148, 163, 184, 0.14);
 }
 .current-row:first-child {
@@ -236,6 +243,7 @@ textarea {
 }
 
 .stat-grid {
+  flex: none;
   margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -245,7 +253,7 @@ textarea {
 .stat-card {
   position: relative;
   overflow: hidden;
-  padding: 13px 15px;
+  padding: 12px 15px;
   border-radius: 16px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -289,6 +297,10 @@ textarea {
 }
 
 .panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 360px;
   margin-top: 14px;
   border-radius: 20px;
   background: var(--surface);
@@ -299,9 +311,10 @@ textarea {
 
 .tabs {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 6px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, #ffffff, #fbfcff);
 }
@@ -310,7 +323,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 14px;
+  padding: 8px 14px;
   border-radius: 11px;
   border: 1px solid transparent;
   background: transparent;
@@ -340,10 +353,11 @@ textarea {
 
 .toolbar {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
@@ -462,8 +476,9 @@ textarea {
 }
 
 .table-wrap {
+  flex: 1 1 auto;
+  min-height: 120px;
   overflow: auto;
-  max-height: min(46vh, 460px);
 }
 
 table.data {
@@ -478,7 +493,7 @@ table.data thead th {
   top: 0;
   z-index: 1;
   text-align: left;
-  padding: 10px 14px;
+  padding: 8px 14px;
   font-size: 11px;
   letter-spacing: 0.03em;
   color: var(--muted);
@@ -488,7 +503,7 @@ table.data thead th {
 }
 
 table.data tbody td {
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-bottom: 1px solid #f1f5f9;
   vertical-align: middle;
 }
@@ -589,16 +604,41 @@ table.data tbody tr:last-child td {
 
 .footer {
   display: flex;
+  flex: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
-  padding: 11px 14px;
+  gap: 8px 16px;
+  padding: 9px 14px;
   border-top: 1px solid var(--line);
   background: #fbfcff;
   font-size: 11.5px;
   color: var(--muted);
 }
-.footer .spacer {
-  flex: 1;
+.footer-meta {
+  display: flex;
+  flex: 1 1 520px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  min-width: 0;
+}
+.footer-query,
+.footer-version {
+  white-space: nowrap;
+}
+.footer-status {
+  flex: 1 1 240px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.footer-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .dot-ok {
@@ -703,9 +743,11 @@ table.data tbody tr:last-child td {
 }
 
 .modal {
+  display: flex;
+  flex-direction: column;
   width: min(560px, 100%);
   max-height: calc(100vh - 40px);
-  overflow: auto;
+  overflow: hidden;
   border-radius: 20px;
   background: var(--surface);
   border: 1px solid rgba(255, 255, 255, 0.6);
@@ -734,6 +776,7 @@ table.data tbody tr:last-child td {
 
 .modal-header {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 12px;
   padding: 18px 20px;
@@ -749,12 +792,15 @@ table.data tbody tr:last-child td {
   color: var(--muted);
 }
 .modal-body {
-  padding: 18px 20px;
   display: grid;
   gap: 16px;
+  min-height: 0;
+  padding: 18px 20px;
+  overflow: auto;
 }
 .modal-footer {
   display: flex;
+  flex: none;
   justify-content: flex-end;
   gap: 8px;
   padding: 14px 20px;
@@ -765,6 +811,7 @@ table.data tbody tr:last-child td {
 .field {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 .field label {
   font-size: 11.5px;
@@ -793,7 +840,8 @@ table.data tbody tr:last-child td {
 }
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 12px;
 }
 .check {
@@ -915,7 +963,7 @@ html.notification-mode #app {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 780px) {
   .stat-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

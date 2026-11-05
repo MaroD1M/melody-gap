@@ -143,7 +143,7 @@ verify_ssl = 1
 [APP]
 reminder_mode = new_missing
 reminder_cooldown_minutes = 10
-window_geometry = 1080x760
+window_geometry =
 window_zoomed = 0
 last_tab = 0
 ```
@@ -257,7 +257,7 @@ GitHub Actions 的 Release 工作流会自动完成编译、打包、SHA256 与�
 cd rust
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace       # 122 项
+cargo test --workspace       # 128 项
 pnpm check
 pnpm build
 ```

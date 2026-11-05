@@ -204,7 +204,7 @@ score = artist_similarity * 0.4 + title_similarity * 0.6
 - 损坏时备份为 `config.corrupt_<时间>.ini`，再重建默认配置；
 - 写入使用同目录 `.tmp` + rename；
 - 默认服务器为占位地址，`is_subsonic_configured()` 会排除占位内容；
-- `window_geometry` 格式 `宽x高+x+y`，支持负坐标。
+- `window_geometry` 由程序保存为 `logical:宽x高+x+y`（宽高为逻辑像素，坐标为物理像素），兼容旧的 `宽x高+x+y` 物理像素格式；支持负坐标。
 
 ### 7.2 missing_songs.json
 
@@ -261,6 +261,20 @@ export_missing / export_history
 | `notification-fallback` | 后端 → 主窗口 | 通知窗不可用时的 toast 数据 |
 
 主窗口同时每秒调用 `get_snapshot`，避免停止播放或查询失败时界面停留旧状态。
+
+### 8.2.1 主窗口启动顺序
+
+`tauri.conf.json` 中主窗口配置为 `create=false`、`visible=false`，不会在 Tauri
+通用窗口初始化阶段提前创建。`setup` 中的顺序固定为：
+
+1. 构建并 `app.manage(state)`；
+2. 创建通知管理器并写入 `state.notifications`；
+3. 创建主窗口；
+4. 恢复窗口几何、显示并聚焦。
+
+这样主窗口和通知窗的 WebView 加载时，`AppState` 一定已经注册，`get_snapshot`
+不会触发 `state not managed`。窗口几何恢复使用逻辑像素宽高和物理像素坐标，
+并按当前显示器工作区与缩放系数限制，详见 7.1 的 `window_geometry` 说明。
 
 ### 8.3 通知窗
 
@@ -338,14 +352,14 @@ pnpm check
 pnpm build
 ```
 
-当前 122 项 Rust 测试：
+当前 128 项 Rust 测试：
 
 | 文件 | 数量 | 覆盖 |
 |------|------|------|
 | `crates/melodygap-core/tests/core_parity.rs` | 76 | 标题解析、匹配、模型、提醒、配置、待补仓库、SMTC 映射 |
 | `crates/melodygap-core/tests/monitor_parity.rs` | 31 | 去重、切歌、三态、缓存、双播放器、未知重试、核验、启停 |
 | `crates/melodygap-core/tests/subsonic_parity.rs` | 12 | token、search3/search2、去重、错误映射 |
-| `src-tauri` 单元测试 | 3 | 窗口几何、URL 校验、CSV BOM/CRLF |
+| `src-tauri` 单元测试 | 9 | 窗口几何、URL 校验、CSV BOM/CRLF |
 
 测试全部离线，不依赖真实播放器、真实 Subsonic 服务器或网络。
 
@@ -412,7 +426,10 @@ pnpm audit
 13. 双播放器同时播放 → 两行并列、互不覆盖，通知逐条展示；
 14. 关闭主窗口/悬浮歌词 → SMTC 继续识别；无 SMTC 时验证隐藏窗口回退；
 15. 导出 CSV → Excel 打开无乱码、含逗号歌名完整；
-16. 设置留空服务器地址/非法冷却 → 表单内联提示，不保存。
+16. 设置留空服务器地址/非法冷却 → 表单内联提示，不保存；
+17. 保留旧 `config.ini` 或使用全新目录启动，均不出现 `state not managed`，无需先保存设置；
+18. 在 125%/150% DPI 或更换显示器后重启，窗口尺寸比例正常、不越出工作区；
+19. 默认 1120×800 下底栏可见、表格内部滚动；拉宽/拉高窗口后布局跟随，设置弹窗底部按钮始终可见。
 
 ## 13. 扩展指南
 

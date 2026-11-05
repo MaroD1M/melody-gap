@@ -14,8 +14,10 @@
 - v2.0.0 将桌面端从 Python/Tkinter 重写为 Rust + Tauri 2 + Svelte 5；v2.0.1 修复发布版误连接开发服务器并补全版本资源，已通过 Windows 实机启动验证。
 - 核心功能保持完整：SMTC/窗口标题检测、双播放器并行、三态曲库查询、待补清单、
   播放记录、提醒、托盘、导出与人工核验。
-- Rust 测试共 122 项，全部离线；`cargo clippy -D warnings`、`pnpm check`、
-  `pnpm build` 通过。
+- Rust 测试共 128 项，全部离线；`cargo clippy -D warnings`、`pnpm check`、
+  `pnpm build` 通过（v2.0.1 发布时为 122 项）。
+- 当前 `main` 另有未发布修复：启动 state 注册竞态、DPI 窗口几何与自适应布局；
+  需 Windows 实机复验后再发布 v2.0.2，当前尚未生成产物。
 - CI/Release 已切换为 Windows + Rust + pnpm，并增加便携包 `--smoke-test`。
 - v2.0.1 启动与 WebView2 界面加载已在 Windows 实机确认；**播放器检测、托盘、
   通知窗和长时间运行仍需按验收清单逐项确认**，本地 Linux 交叉编译不能替代
@@ -36,7 +38,7 @@
 | CI | `41861400668`，成功 |
 | Release 构建 | `41864343889`，成功 |
 | 推荐产物 | `MelodyGap-portable-windows-x64.zip` |
-| 测试 | 122 项 Rust 测试 |
+| 测试 | 122 项（v2.0.1）；`main` 128 项 |
 
 发布资产：
 
@@ -166,7 +168,7 @@ Tauri 事件循环
 
 - Rust `cargo fmt --check`；
 - `cargo clippy --workspace --all-targets -- -D warnings`；
-- `cargo test --workspace`：122 项离线测试；
+- `cargo test --workspace`：128 项离线测试；
 - `pnpm check`：0 errors / 0 warnings；
 - `pnpm build`：前端产物嵌入 EXE；
 - Windows MSVC Release 构建 + 便携包冒烟测试。
