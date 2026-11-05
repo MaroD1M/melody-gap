@@ -1,6 +1,6 @@
 # MelodyGap 项目现状、路线图与交接说明
 
-> 当前版本：2.0.1
+> 当前版本：2.0.2
 > 状态基线：2026-11-05
 > 适用仓库：`MaroD1M/melody-gap`
 > 目标读者：项目维护者、二次开发者、接手者、发布负责人
@@ -11,17 +11,15 @@
 
 ## 1. 结论摘要
 
-- v2.0.0 将桌面端从 Python/Tkinter 重写为 Rust + Tauri 2 + Svelte 5；v2.0.1 修复发布版误连接开发服务器并补全版本资源，已通过 Windows 实机启动验证。
+- v2.0.0 将桌面端从 Python/Tkinter 重写为 Rust + Tauri 2 + Svelte 5；v2.0.1 修复发布版误连接开发服务器并补全版本资源；v2.0.2 修复启动 state 竞态、DPI 窗口恢复与自适应布局。
 - 核心功能保持完整：SMTC/窗口标题检测、双播放器并行、三态曲库查询、待补清单、
   播放记录、提醒、托盘、导出与人工核验。
 - Rust 测试共 128 项，全部离线；`cargo clippy -D warnings`、`pnpm check`、
   `pnpm build` 通过（v2.0.1 发布时为 122 项）。
-- 当前 `main` 另有未发布修复：启动 state 注册竞态、DPI 窗口几何与自适应布局；
-  需 Windows 实机复验后再发布 v2.0.2，当前尚未生成产物。
 - CI/Release 已切换为 Windows + Rust + pnpm，并增加便携包 `--smoke-test`。
-- v2.0.1 启动与 WebView2 界面加载已在 Windows 实机确认；**播放器检测、托盘、
-  通知窗和长时间运行仍需按验收清单逐项确认**，本地 Linux 交叉编译不能替代
-  Windows Runner 和真实播放器测试。
+- v2.0.2 Windows CI、Release 构建、便携包打包与 `--smoke-test` 已通过；
+  **播放器检测、托盘、通知窗和长时间运行仍需按验收清单逐项确认**，本地 Linux
+  交叉编译不能替代 Windows Runner 和真实播放器测试。
 - 剩余技术债包括：播放历史不持久化、网络查询仍在监控线程、密码明文、未签名、
   仅支持 Windows。
 
@@ -29,41 +27,43 @@
 
 | 项目 | 当前值 |
 |------|--------|
-| 版本 | `2.0.1` |
+| 版本 | `2.0.2` |
 | 分支 | `main` |
 | 主要实现 | `rust/`（Tauri 2 + Svelte 5） |
-| 标签 | `v2.0.1` |
-| Release | <https://github.com/MaroD1M/melody-gap/releases/tag/v2.0.1> |
-| 发布时间 | 2026-11-04 16:19 UTC |
-| CI | `41861400668`，成功 |
-| Release 构建 | `41864343889`，成功 |
+| 标签 | `v2.0.2` |
+| Release | <https://github.com/MaroD1M/melody-gap/releases/tag/v2.0.2> |
+| 发布时间 | 2026-11-05 05:21 UTC |
+| CI | `41972369450`，成功 |
+| Release 构建 | `41972432358`，成功 |
 | 推荐产物 | `MelodyGap-portable-windows-x64.zip` |
-| 测试 | 122 项（v2.0.1）；`main` 128 项 |
+| 测试 | 128 项 Rust 测试 |
 
 发布资产：
 
 | 文件 | 大小 | SHA256 |
 |------|------|--------|
-| `MelodyGap-portable-windows-x64.zip` | 3,596,161 B | `996ead96df0007c6c44258503a078684883c6d9faef02b9fb5313d93387e0a14` |
-| `MelodyGap.exe` | 8,158,208 B | `e5ac1b04a2bd72e19b5ccd2b636b8acac1c65dc68b4ab596a176296441f776e5` |
+| `MelodyGap-portable-windows-x64.zip` | 3,599,996 B | `dfbb1ed0510578d69f30af40cd444cb9d5b43664ced9fc17958179d8cc5b7098` |
+| `MelodyGap.exe` | 8,162,304 B | `307191f575d339c28a8a95392e094320fee27bf60334f9ebf0e2ad5a55ba950b` |
 | `SHA256SUMS.txt` | 191 B | 见 Release 页面 |
 
 官方 Windows Runner 使用 MSVC 构建，EXE 静态链接 WebView2 Loader，因此 ZIP 内只有
 EXE、配置示例与 LICENSE；本地 Linux 交叉编译（GNU）产物需要额外携带
 `WebView2Loader.dll`，哈希不会与官方 Release 一致。
 
-v2.0.1 修复内容：
+v2.0.2 修复内容：
 
-- 发布构建启用 Tauri `custom-protocol`，官方 EXE 已确认包含 `/assets/index-...`
-  前端资源，不再打开 `http://localhost:5173`；
-- `build.rs` 与 CI 验证步骤增加防回归检查；
-- 补全 Windows 版本资源：`CompanyName=MaroD1M`、`OriginalFilename=MelodyGap.exe`、
-  版权、内部名称与备注；
-- 替换应用、托盘与通知窗口图标；
-- 修复 Subsonic 测试并发偶发失败，并对瞬时请求错误增加一次安全重试；
-- 迁移已弃用的 `lucide-svelte` 到 `@lucide/svelte`。
+- 主窗口改为在 `AppState` 与通知管理器注册后创建，修复启动时 `state not managed`
+  且必须保存设置才能恢复的问题；
+- 窗口几何改存逻辑尺寸与物理坐标，旧格式按物理像素兼容；恢复时按当前显示器
+  工作区和缩放系数限制，修复 DPI 缩放与越界；
+- 主窗口默认隐藏，恢复尺寸/位置后显示，首次运行居中；
+- 底部状态栏改为可换行分组，默认窗口高度下保持可见，长文本不再挤乱按钮；
+- 设置弹窗改为固定头尾、内容区滚动，小窗口下保存按钮始终可见；
+- 主布局改为全高自适应，默认 1120×800 下表格内部滚动，最大宽度提升至 1440px；
+- 窗口标题版本号改为构建时读取；版本号升级至 2.0.2。
 
-上一版 `v2.0.0` 为 Rust 首次发布，存在启动后连接开发服务器的缺陷，已由 2.0.1 修复。
+上一版 `v2.0.1` 修复了发布版误连接开发服务器并补全 Windows 版本资源；`v2.0.0`
+存在启动后连接开发服务器的缺陷，请勿继续使用。
 
 ## 3. 产品定位与边界
 
@@ -149,6 +149,7 @@ Tauri 事件循环
 | 1.2.0 | 2026-10-30 | 目录版、版本资源、asInvoker 清单、禁用 UPX、误报文档 |
 | 2.0.0 | 2026-11-04 | Rust + Tauri 2 + Svelte 5 重写、便携 WebView2 数据、多选、CI/Release 切换 |
 | 2.0.1 | 2026-11-04 | 修复 custom-protocol、补全 Windows 版本资源、新图标、依赖与测试稳定性 |
+| 2.0.2 | 2026-11-05 | 修复启动 state 竞态、DPI 窗口恢复、底栏与设置弹窗布局 |
 
 ### 5.2 当前功能清单
 
@@ -192,8 +193,8 @@ Tauri 事件循环
 
 ### P0：发布闭环
 
-1. v2.0.1 Windows CI 与 Release 已通过；
-2. 在 Windows 10/11 上完成剩余实机验收清单（启动已通过）；
+1. v2.0.2 Windows CI 与 Release 已通过；
+2. 在 Windows 10/11 上完成剩余实机验收清单（启动与打包冒烟已通过）；
 3. 核对 EXE 版本资源、SHA256、托盘/通知/播放器检测；
 4. 记录已知兼容性问题后再扩大宣传。
 
