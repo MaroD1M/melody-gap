@@ -1,7 +1,7 @@
 # MelodyGap 开发与维护手册
 
 > 版本：2.0.1
-> 状态基线：2026-11-04
+> 状态基线：2026-11-05
 > 适用范围：`melody-gap/rust/`
 > 目标读者：后续维护者、二次开发者、代码审查者、发布负责人
 
@@ -28,7 +28,7 @@ rust/
 │   └── tests/                     # 核心、监控、Subsonic 行为测试
 ├── src-tauri/
 │   ├── src/lib.rs                 # Tauri 构建、窗口恢复、退出
-│   ├── src/commands.rs            # 18 个 invoke 命令与记录回调
+│   ├── src/commands.rs            # 17 个 invoke 命令与记录回调
 │   ├── src/state.rs               # AppState / Snapshot 序列化
 │   ├── src/events.rs              # state-changed 广播
 │   ├── src/notifications.rs       # 通知窗、队列、6 秒计时

@@ -1,6 +1,6 @@
 # MelodyGap
 
-> 自动发现 QQ 音乐 / 网易云音乐里“曲库里还没有”的歌，整理成可核验、可导出的待补清单。
+> 自动发现 QQ 音乐 / 网易云音乐中 Subsonic / Navidrome / Airsonic 曲库缺失的歌曲，整理成可核验、可导出的待补清单。
 
 [![CI](https://github.com/MaroD1M/melody-gap/actions/workflows/ci.yml/badge.svg)](https://github.com/MaroD1M/melody-gap/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/MaroD1M/melody-gap?display_name=tag)](https://github.com/MaroD1M/melody-gap/releases/latest)
@@ -14,9 +14,9 @@ MelodyGap 是一个面向个人音乐曲库的 Windows 小工具：优先读取 
 再通过 Subsonic API 查询你的 **Subsonic / Navidrome / Airsonic** 曲库。不在库里的
 歌会自动进入本地待补清单，方便你之后统一补充。
 
-v2.0.0 起，桌面端由 Python/Tkinter 重写为 **Rust + Tauri 2 + Svelte 5**。新的
-便携版体积更小、启动更快，也不再依赖 PyInstaller 自解压。v2.0.1 补全了 Windows
-版本信息并修复了发布版误连接开发服务器的问题。
+当前版本为 **v2.0.1**。桌面端自 v2.0.0 起由 Python/Tkinter 重写为
+**Rust + Tauri 2 + Svelte 5**，便携版体积更小、启动更快，也不再依赖 PyInstaller
+自解压。v2.0.1 已通过 Windows 实机启动验证，并修复了发布版误连接开发服务器的问题。
 
 它不获取音源、不操作播放器界面，也不会自动修改曲库。
 
@@ -274,9 +274,10 @@ pnpm build
 ```bash
 # 1. 更新版本号与 CHANGELOG
 # 2. 提交并推送 main
-git tag v2.0.1
+VERSION=2.0.2
+git tag "v$VERSION"
 git push origin main
-git push origin v2.0.1
+git push origin "v$VERSION"
 ```
 
 ## 开发文档
