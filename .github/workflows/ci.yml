@@ -3,8 +3,18 @@ name: CI
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -120,7 +130,7 @@ jobs:
         with:
           name: MelodyGap-windows-x64
           path: |
-            rust/release/MelodyGap/MelodyGap.exe
             rust/release/MelodyGap-portable-windows-x64.zip
             rust/release/SHA256SUMS.txt
           if-no-files-found: error
+          retention-days: 1
